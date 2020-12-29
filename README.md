@@ -2,9 +2,11 @@
 
 ![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
 
-Super Pads helps manage samples on a SP-404SX. Open the app, select a SD Card root directory and adjust parameters and drag and drop files to be converted to wave with [FFmpeg](https://ffmpeg.org/) behind the scenes. Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version. Personally I leave the apps in the root of my SD card to make adjustments on any Windows or macOS machine. Linux support should _just work_ but I haven't tested it personally.
+Super Pads helps manage samples on a SP-404SX. To use, open the app, select your SD Card root directory, adjust parameters for existing pads, pick files or drag & drop files to be converted to Wave with [FFmpeg](https://ffmpeg.org/) behind the scenes.
 
-Makes use of two libraries I wrote to play with my own SP-404SX, [uttori-audio-padinfo](https://github.com/uttori/uttori-audio-padinfo) for parsing and writing the `PAD_INFO.BIN` file and [uttori-audio-wave](https://github.com/uttori/uttori-audio-wave) for adding the `RLND` header to the Wave files out of FFmpeg, and an Electron wrapper to make it easier to use.
+Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version. Personally I leave the apps in the root of my SD card to make adjustments on any Windows or macOS machine. Linux support should _just work_ but I haven't tested it personally.
+
+Super Pads makes use of two libraries I wrote to play with my own SP-404SX, [uttori-audio-padinfo](https://github.com/uttori/uttori-audio-padinfo) for parsing and writing the `PAD_INFO.BIN` file and [uttori-audio-wave](https://github.com/uttori/uttori-audio-wave) for adding the `RLND` header to the Wave files out of FFmpeg, and an Electron wrapper to make it easier to use.
 
 _Note:_ I do not have an OG SP-404 or SP-404A but this could easily support those if someone is willing to help debug issues.
 
@@ -19,7 +21,7 @@ If you would like to support development, listen to my songs, follow me, or play
 
 ## Roadmap
 
-Features I have planned to work on as time permits and there are others using the app. Roughly in order:
+Features I have planned to work on as time permits, roughly in order:
 
 - Investigate alternatives to Electron like [Tauri](https://github.com/tauri-apps/tauri).
 - Copy & Paste between pads to move one pad to another or copy one pad to another.
