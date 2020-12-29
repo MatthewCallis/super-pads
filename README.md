@@ -2,7 +2,7 @@
 
 ![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
 
-Super Pads helps manage samples on a SP-404SX. Open the app, select a SD Card root directory and adjust parameters and drag and drop files to be converted to wave with [FFmpeg](https://ffmpeg.org/) behind the scenes.
+Super Pads helps manage samples on a SP-404SX. Open the app, select a SD Card root directory and adjust parameters and drag and drop files to be converted to wave with [FFmpeg](https://ffmpeg.org/) behind the scenes. Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version.
 
 Makes use of two libraries I wrote to play with my own SP-404SX, [uttori-audio-padinfo](https://github.com/uttori/uttori-audio-padinfo) for parsing and writing the `PAD_INFO.BIN` file and [uttori-audio-wave](https://github.com/uttori/uttori-audio-wave) for adding the `RLND` header to the Wave files out of FFmpeg, and an Electron wrapper to make it easier to use.
 
@@ -21,14 +21,15 @@ If you would like to support development, listen to my songs, follow me, or play
 
 Features I have planned to work on as time permits and there are others using the app. Roughly in order:
 
-- Copy & Paste between pads to move one pad to another or copy one pad to another.
 - Investigate alternatives to Electron like [Tauri](https://github.com/tauri-apps/tauri).
+- Copy & Paste between pads to move one pad to another or copy one pad to another.
 - Saved Sets for easier and fast switching of arrangements.
-- Preview sounds.
+- Preview Sounds
+- Automatic Updates
 
 ## Change Log
 
-## [1.0.0](https://github.com/MatthewCallis/super-pads) - 2020-12-27
+## [1.0.0](https://github.com/MatthewCallis/super-pads) - 2020-12-28
 
 - 🧰 Released
 
