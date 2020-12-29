@@ -10,7 +10,10 @@ Super Pads helps manage samples on a SP-404SX. To use:
 1. Adjust parameters for existing pads, remove pads, or add pads with pick files / drag & drop files to be converted to Wave with [FFmpeg](https://ffmpeg.org/) behind the scenes.
 1. Click `Write SD Card` to save your changed and convert files.
 
-Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version. Personally I leave the apps in the root of my SD card to make adjustments on any Windows or macOS machine. Linux support should _just work_ but I haven't tested it personally. SD Card files are changed and not backed up, use at your own risk.
+- [Download for macOS](https://github.com/MatthewCallis/super-pads/releases/download/v1.0.0/Super.Pads.dmg)
+- [Download for Windows (x64)](https://github.com/MatthewCallis/super-pads/releases/download/v1.0.0/Super.Pads.exe)
+
+Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest versions. Personally I leave the apps in the root of my SD card to make adjustments on any Windows or macOS machine. Linux support should _just work_ but I haven't tested it personally. SD Card files are changed and not backed up, use at your own risk.
 
 Super Pads makes use of two libraries I wrote to play with my own SP-404SX, [uttori-audio-padinfo](https://github.com/uttori/uttori-audio-padinfo) for parsing and writing the `PAD_INFO.BIN` file and [uttori-audio-wave](https://github.com/uttori/uttori-audio-wave) for adding the `RLND` header to the Wave files out of FFmpeg, and an Electron wrapper to make it easier to use.
 
