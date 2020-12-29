@@ -1,0 +1,179 @@
+{
+  "name": "super-pads",
+  "version": "1.0.0",
+  "description": "Super Pads helps manage samples on a SP-404SX",
+  "author": "Matthew Callis <matthew.callis@gmail.com>",
+  "contributors": [],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uttori/uttori-audio-wave.git"
+  },
+  "bugs": {
+    "url": "https://github.com/uttori/uttori-audio-wave/issues"
+  },
+  "homepage": "https://github.com/uttori/uttori-audio-wave",
+  "keywords": [
+    "sp404",
+    "sp404sx",
+    "sp404a",
+    "roland",
+    "sampler"
+  ],
+  "main": "src/main.js",
+  "files": [
+    "src/**/*",
+    "index.html",
+    "styles.css",
+    "fonts/**/*"
+  ],
+  "engines": {
+    "node": ">=12"
+  },
+  "scripts": {
+    "start": "electron .",
+    "scss": "node-sass --watch style.scss style.css --output-style compressed",
+    "make-icons": "electron-icon-maker --input=./Art/icon.png --output=./",
+    "build": "electron-builder build --mac",
+    "package-mac": "electron-builder build --mac",
+    "package-linux": "electron-builder build --linux",
+    "package-win": "electron-builder build --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^11.1.1",
+    "electron-builder": "^22.9.1",
+    "electron-icon-maker": "0.0.5",
+    "eslint": "^7.16.0",
+    "eslint-config-airbnb": "^18.2.1",
+    "eslint-plugin-ava": "^11.0.0",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-jsdoc": "^30.7.9",
+    "eslint-plugin-jsx-a11y": "^6.4.1",
+    "eslint-plugin-no-inferred-method-name": "^2.0.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-optimize-regex": "^1.2.0",
+    "eslint-plugin-ramda": "^2.5.1",
+    "eslint-plugin-react": "^7.21.5",
+    "eslint-plugin-react-hooks": "^4.2.0",
+    "eslint-plugin-security": "^1.4.0",
+    "eslint-plugin-unicorn": "^25.0.0",
+    "eslint-plugin-xss": "^0.1.10",
+    "node-sass": "^5.0.0"
+  },
+  "dependencies": {
+    "@uttori/audio-padinfo": "^1.2.0",
+    "@uttori/audio-wave": "^1.2.0",
+    "ffmpeg-static-electron": "^2.0.1",
+    "fluent-ffmpeg": "^2.1.2"
+  },
+  "build": {
+    "appId": "org.superfamicom.super-pads",
+    "productName": "Super Pads",
+    "directories": {
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "node_modules",
+      "index.html",
+      "style.css",
+      "src/**/*",
+      "fonts/**/*"
+    ],
+    "asar": {
+      "smartUnpack": true
+    },
+    "artifactName": "${productName}-${os}.${ext}",
+    "mac": {
+      "asar": true,
+      "asarUnpack": [
+        "node_modules/ffmpeg-static-electron/package.json",
+        "node_modules/ffmpeg-static-electron/index.js",
+        "node_modules/ffmpeg-static-electron/bin/mac${/*}"
+      ],
+      "hardenedRuntime": true,
+      "appId": "org.superfamicom.super-pads",
+      "category": "public.app-category.productivity",
+      "type": "distribution",
+      "entitlements": "build-resources/entitlements.plist",
+      "entitlementsInherit": "build-resources/entitlements.plist",
+      "files": [
+        "!node_modules/fluent-ffmpeg/doc${/*}",
+        "!node_modules/fluent-ffmpeg/tools${/*}",
+        "!node_modules/ffmpeg-static-electron/bin/win${/*}",
+        "!node_modules/ffmpeg-static-electron/bin/linux${/*}",
+        "!node_modules/**/LICENSE",
+        "!node_modules/**/*.md",
+        "!node_modules/**/Makefile",
+        "!LICENSE.md",
+        "!README.md",
+        "!loading.png",
+        "!example.png",
+        "!style.scss",
+        "!Art"
+      ],
+      "target": [
+        "dmg"
+      ],
+      "electronLanguages": [
+        "en"
+      ],
+      "icon": "icons/icon.icns"
+    },
+    "win": {
+      "asar": true,
+      "asarUnpack": [
+        "node_modules/ffmpeg-static-electron/package.json",
+        "node_modules/ffmpeg-static-electron/index.js",
+        "node_modules/ffmpeg-static-electron/bin/win${/*}"
+      ],
+      "files": [
+        "!node_modules/fluent-ffmpeg/doc${/*}",
+        "!node_modules/fluent-ffmpeg/tools${/*}",
+        "!node_modules/ffmpeg-static-electron/bin/mac${/*}",
+        "!node_modules/ffmpeg-static-electron/bin/linux${/*}",
+        "!node_modules/**/LICENSE",
+        "!node_modules/**/*.md",
+        "!node_modules/**/Makefile",
+        "!LICENSE.md",
+        "!README.md",
+        "!loading.png",
+        "!example.png",
+        "!style.scss",
+        "!Art"
+      ],
+      "target": [
+        "portable"
+      ],
+      "icon": "icons/icon.ico"
+    },
+    "linux": {
+      "asar": true,
+      "asarUnpack": [
+        "node_modules/ffmpeg-static-electron/package.json",
+        "node_modules/ffmpeg-static-electron/index.js",
+        "node_modules/ffmpeg-static-electron/bin/linux${/*}"
+      ],
+      "files": [
+        "!node_modules/fluent-ffmpeg/doc${/*}",
+        "!node_modules/fluent-ffmpeg/tools${/*}",
+        "!node_modules/ffmpeg-static-electron/bin/mac${/*}",
+        "!node_modules/ffmpeg-static-electron/bin/win${/*}",
+        "!node_modules/**/LICENSE",
+        "!node_modules/**/*.md",
+        "!node_modules/**/Makefile",
+        "!LICENSE.md",
+        "!README.md",
+        "!loading.png",
+        "!example.png",
+        "!style.scss",
+        "!Art"
+      ],
+      "executableName": "super-pads",
+      "icon": "icons/png/512x512.png",
+      "target": [
+        "tar.bz2",
+        "AppImage"
+      ]
+    }
+  }
+}

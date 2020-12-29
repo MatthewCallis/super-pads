@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <meta http-equiv="Content-Security-Policy" content="img-src 'self' data:; default-src 'self'; script-src 'self'">
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <title>Super Pads</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="loading">
+        <h1>LOADING</h1>
+      </div>
+      <div class="left startup">
+        <div class="welcome">
+          <p>Super Pads helps manage samples on a SP-404SX. Select a SD Card root to the right to get started.</p>
+          <h1><a href="https://github.com/MatthewCallis/super-pads" target="_blank" rel="noopener noreferrer" title="Super Pads Homepage">Super Pads<br />スーパーパッド</a></h1>
+          <h3><a href="https://open.spotify.com/artist/0FYTwSXr4Q7Ujml4wW7Y97" target="_blank" rel="noopener noreferrer" title="Matthew Callis on Spotify">by Matthew Callis</a></h3>
+        </div>
+        <div class="pad-container">
+          <div class="pad-info">
+            <div class="row">
+              <label tooltip="Hold down to play." flow="down">
+                <div class="button slider gate-loop">
+                  <input type="checkbox" class="gate-button checkbox" name="gate-button" title="Gated Playback" />
+                  <label for="gate-button" class="knobs">
+                    <span>GATE</span>
+                  </label>
+                  <div class="layer"></div>
+                </div>
+              </label>
+              <label tooltip="Auto replay after ending." flow="down">
+                <div class="button slider gate-loop">
+                  <input type="checkbox" class="loop-button checkbox" name="loop-button" title="Looping Playback" />
+                  <label for="loop-button" class="knobs">
+                    <span>LOOP</span>
+                  </label>
+                  <div class="layer"></div>
+                </div>
+              </label>
+            </div>
+
+            <div class="row">
+              <div class="button slider lofi">
+                <input type="checkbox" class="lofi-button checkbox" name="lofi-button" title="Lo-Fi or Stereo Processing" />
+                <label for="lofi-button" class="knobs">
+                  <span>LO-FI</span>
+                </label>
+                <div class="layer"></div>
+              </div>
+              <div class="button slider reverse-off">
+                <input type="checkbox" class="reverse-off-button checkbox" name="reverse-off-button" title="Reverse Sample" />
+                <label for="reverse-off-button" class="knobs">
+                  <span>REVERSE</span>
+                </label>
+                <div class="layer"></div>
+              </div>
+            </div>
+
+            <div class="row">
+              <label for="bpm">
+                <span>BPM</span>
+                <input class="input bpm" name="bpm" type="number" step="1" min="20" max="999" title="Detect Beats Per Minute" />
+              </label>
+              <label for="bpm-user">
+                <span>User Set BPM</span>
+                <input class="input bpm-user" name="bpm-user" type="number" step="1" min="20" max="999" title="User Set Beats Per Minute" />
+              </label>
+            </div>
+
+            <div class="row">
+              <label for="tempo-mode" tooltip="Pattern, User Set, or Off">
+                <span>TEMPO MODE</span>
+                <select name="tempo-mode" class="tempo-mode" title="Which Tempo Mode is the sample using?">
+                  <option value="Off">Off</option>
+                  <option value="Pattern">Pattern</option>
+                  <option value="User">User</option>
+                </select>
+              </label>
+              <label for="mono-stereo" tooltip="Convert to MONO.">
+                <span>CHANNELS</span>
+                <div class="button slider mono-stereo">
+                  <input type="checkbox" class="mono-stereo-button checkbox" name="mono-stereo" title="Channel Count" />
+                  <label for="mono-stereo-button" class="knobs">
+                    <span>STEREO</span>
+                  </label>
+                  <div class="layer"></div>
+                </div>
+              </label>
+            </div>
+
+            <div class="row">
+              <div class="volume-container">
+                <label for="volume">
+                  <span>Volume </span><span class="volume-numeric">(127)</span>
+                  <input class="range volume" name="volume" type="range" step="1" min="0" max="127" title="Sample Volume" />
+                </label>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="original-file-container">
+                <label for="original-file" tooltip="The file converted to be used for this pad.">
+                  <span>ORIGINAL FILE</span>
+                  <input type="text" name="original-file" class="original-file" />
+                </label>
+              </div>
+            </div>
+
+            <div class="row">
+              <button class="drop-zone" type="button">
+                Drop File or Pick File
+              </button>
+            </div>
+
+            <div class="row">
+              <button type="button" class="remove-pad">Remove Pad</button>
+            </div>
+          </div>
+          <div class="current-pad">
+            <h1 class="pad-label">A1</h1>
+            <div class="meta-data">
+              <h3 class="file-size">0 KB</h3>
+              <h3 class="file-type">WAVE</h3>
+              <h3 class="duration">00:00:00</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="top">
+          <div class="folder-selector">
+            <label>SD CARD</label>
+            <button class="choose-folder" type="button">Pick Folder</button>
+          </div>
+          <div class="bank-selector">
+            <label for="bank-selector">PAD BANK</label>
+            <select name="bank-selector">
+              <option value="bank-a">Bank A</option>
+              <option value="bank-b">Bank B</option>
+              <option value="bank-c">Bank C</option>
+              <option value="bank-d">Bank D</option>
+              <option value="bank-e">Bank E</option>
+              <option value="bank-f">Bank F</option>
+              <option value="bank-g">Bank G</option>
+              <option value="bank-h">Bank H</option>
+              <option value="bank-i">Bank I</option>
+              <option value="bank-j">Bank J</option>
+            </select>
+          </div>
+        </div>
+        <div class="middle">
+          <p class="errors"></p>
+          <div class="pad-list bank-a open"></div>
+          <div class="pad-list bank-b"></div>
+          <div class="pad-list bank-c"></div>
+          <div class="pad-list bank-d"></div>
+          <div class="pad-list bank-e"></div>
+          <div class="pad-list bank-f"></div>
+          <div class="pad-list bank-g"></div>
+          <div class="pad-list bank-h"></div>
+          <div class="pad-list bank-i"></div>
+          <div class="pad-list bank-j"></div>
+        </div>
+        <div class="bottom">
+          <button class="write-card" type="button">Write SD Card</button>
+        </div>
+      </div>
+    </div>
+    <script src="./src/perlin.js"></script>
+    <script src="./src/renderer.js"></script>
+  </body>
+</html>

@@ -1,0 +1,73 @@
+{
+  "extends": [
+    "airbnb",
+    "plugin:ava/recommended",
+    "plugin:node/recommended",
+    "plugin:optimize-regex/all",
+    "plugin:ramda/recommended",
+    "plugin:security/recommended",
+    "plugin:unicorn/recommended"
+  ],
+  "plugins": [
+    "ava",
+    "jsdoc",
+    "no-inferred-method-name",
+    "node",
+    "optimize-regex",
+    "ramda",
+    "security",
+    "unicorn",
+    "xss"
+  ],
+  "env": {
+    "es6": true,
+    "browser": true,
+    "mocha": true
+  },
+  "globals": {
+    "sinon": false,
+    "mocha": true,
+    "expect": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2020
+  },
+  "rules": {
+    "import/no-extraneous-dependencies": [
+      "error", {
+        "devDependencies": ["**/*.test.js", "**/test/**/*.js"],
+        "optionalDependencies": true,
+        "peerDependencies": false
+      }
+    ],
+    "ava/no-only-test": 0,
+    "camelcase": 0,
+    "class-methods-use-this": 0,
+    "consistent-return": ["warn", { "treatUndefinedAsUnspecified": false }],
+    "global-require": 0,
+    "import/no-dynamic-require": 0,
+    "max-classes-per-file": 0,
+    "max-len": 0,
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "no-inferred-method-name/no-inferred-method-name": "error",
+    "no-param-reassign": 0,
+    "no-plusplus": 0,
+    "no-restricted-syntax": 0,
+    "no-underscore-dangle": 0,
+    "no-unused-vars": ["error", { "varsIgnorePattern": "^_", "argsIgnorePattern": "^_", "caughtErrors": "none" }],
+    "node/no-unpublished-require": 0,
+    "object-curly-newline": 0,
+    "optimize-regex/optimize-regex": "warn",
+    "security/detect-non-literal-fs-filename": 0,
+    "security/detect-non-literal-require": 0,
+    "security/detect-object-injection": 0,
+    "unicorn/catch-error-name": 0,
+    "unicorn/filename-case": 0,
+    "unicorn/no-for-loop": 0,
+    "unicorn/no-fn-reference-in-iterator": 0,
+    "unicorn/no-null": 0,
+    "unicorn/no-reduce": 0,
+    "unicorn/no-useless-undefined": 0,
+    "unicorn/prevent-abbreviations": 0
+  }
+}
