@@ -28,16 +28,21 @@ onmessage = (event) => {
     const files = fs.readdirSync(`${root}/ROLAND/SP-404SX/SMPL/`);
     files.forEach((file) => {
       if (file[0] !== '.' && path.extname(file) === '.WAV') {
-        const label = getLabel(file);
-        const pad = pads.find((p) => p.label === label);
-        if (pad) {
-          const { size } = fs.statSync(`${root}/ROLAND/SP-404SX/SMPL/${file}`);
-          const data = fs.readFileSync(`${root}/ROLAND/SP-404SX/SMPL/${file}`);
-          const { chunks } = AudioWAV.fromFile(data);
-          const { duration } = chunks.find((c) => c.type === 'data').value;
+        // This is only bonus data, don't rely on it
+        try {
+          const label = getLabel(file);
+          const pad = pads.find((p) => p.label === label);
+          if (pad) {
+            const { size } = fs.statSync(`${root}/ROLAND/SP-404SX/SMPL/${file}`);
+            const data = fs.readFileSync(`${root}/ROLAND/SP-404SX/SMPL/${file}`);
+            const { chunks } = AudioWAV.fromFile(data);
+            const { duration } = chunks.find((c) => c.type === 'data').value;
 
-          pad.duration = duration;
-          pad.size = size;
+            pad.duration = duration;
+            pad.size = size;
+          }
+        } catch (error) {
+          console.error(error);
         }
       } else {
         // console.log('Extra File:', file);
