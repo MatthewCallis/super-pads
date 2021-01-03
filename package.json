@@ -1,6 +1,6 @@
 {
   "name": "super-pads",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "Super Pads helps manage samples on a SP-404SX",
   "author": "Matthew Callis <matthew.callis@gmail.com>",
   "contributors": [],
@@ -43,11 +43,11 @@
     "electron": "^11.1.1",
     "electron-builder": "^22.9.1",
     "electron-icon-maker": "0.0.5",
-    "eslint": "^7.16.0",
+    "eslint": "^7.17.0",
     "eslint-config-airbnb": "^18.2.1",
     "eslint-plugin-ava": "^11.0.0",
     "eslint-plugin-import": "^2.22.1",
-    "eslint-plugin-jsdoc": "^30.7.9",
+    "eslint-plugin-jsdoc": "^30.7.10",
     "eslint-plugin-jsx-a11y": "^6.4.1",
     "eslint-plugin-no-inferred-method-name": "^2.0.0",
     "eslint-plugin-node": "^11.1.0",
@@ -61,8 +61,8 @@
     "node-sass": "^5.0.0"
   },
   "dependencies": {
-    "@uttori/audio-padinfo": "^1.2.1",
-    "@uttori/audio-wave": "^1.6.0",
+    "@uttori/audio-padinfo": "^1.2.2",
+    "@uttori/audio-wave": "^1.6.1",
     "ffmpeg-static-electron": "^2.0.1",
     "fluent-ffmpeg": "^2.1.2"
   },
