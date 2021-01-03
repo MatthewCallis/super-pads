@@ -4,12 +4,12 @@
 
 Super Pads helps manage samples on a SP-404SX. To use:
 
-## Latest Version: v1.1 (2021-01-01)
+## Latest Version: v1.1.1 (2021-01-02)
 
 - Fix issue with some errant WAV files preventing SD cards from being read.
 
-- [Download for macOS](https://github.com/MatthewCallis/super-pads/releases/download/v1.1.0/Super.Pads.dmg)
-- [Download for Windows (x64)](https://github.com/MatthewCallis/super-pads/releases/download/v1.1.0/Super.Pads.exe)
+- [Download for macOS](https://github.com/MatthewCallis/super-pads/releases/download/v1.1.1/Super.Pads-mac.dmg)
+- [Download for Windows (x64)](https://github.com/MatthewCallis/super-pads/releases/download/v1.1.1/Super.Pads-win.exe)
 
 Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version. Personally I leave the apps in the root of my SD card to make adjustments on any Windows or macOS machine. Linux support should _just work_ but I haven't tested it personally. SD Card files are changed and not backed up, use at your own risk.
 
