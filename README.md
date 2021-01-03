@@ -50,6 +50,14 @@ Features I have planned to work on as time permits, roughly in order:
 
 ## Change Log
 
+## [1.1.1](https://github.com/MatthewCallis/super-pads) - 2020-01-02
+
+- 🧰 Forgot to bump the version number in the previous release 🙃
+
+## [1.1.0](https://github.com/MatthewCallis/super-pads) - 2020-01-01
+
+- 🧰 Fix issue with some errant WAV files preventing SD cards from being read.
+
 ## [1.0.0](https://github.com/MatthewCallis/super-pads) - 2020-12-28
 
 - 🧰 Released
