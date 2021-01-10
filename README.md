@@ -23,6 +23,12 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 1. If any error comes up you will see it above the pad matrix, click it to dismiss.
 1. If you think something should be working but it not, please [file an issue](https://github.com/MatthewCallis/super-pads/issues) or [tweet at me](https://twitter.com/superfamicom/status/1343989480160522240).
 
+## Tempo Mode
+
+`Tempo Mode` is another name for the `Time Modify` settings when adjusting the BPM, where turning the knob all the way to the left is `Off`, so the sample will play at its original length, turning the knob all the way to the right is `Pattern` and will set the sample to play at the tempo of the pattern. The BPM can be between `40` and `200`, and `User` will use the custom value.
+
+See page 30 of the manual.
+
 ## Notes
 
 Super Pads makes use of two libraries I wrote to play with my own SP-404SX, [uttori-audio-padinfo](https://github.com/uttori/uttori-audio-padinfo) for parsing and writing the `PAD_INFO.BIN` file and [uttori-audio-wave](https://github.com/uttori/uttori-audio-wave) for adding the `RLND` header to the Wave files out of FFmpeg, and an Electron wrapper to make it easier to use.
