@@ -25,7 +25,7 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 
 ## Tempo Mode
 
-`Tempo Mode` is another name for the `Time Modify` settings when adjusting the BPM, where turning the knob all the way to the left is `Off`, so the sample will play at its original length, turning the knob all the way to the right is `Pattern` and will set the sample to play at the tempo of the pattern. The BPM can be between `40` and `200`, and `User` will use the custom value.
+`Tempo Mode` is another name for the `Time Modify` / `Time Adjust` settings when adjusting the BPM, where turning the knob all the way to the left is `Off`, so the sample will play at its original length, turning the knob all the way to the right is `Pattern` and will set the sample to play at the tempo of the pattern. The BPM can be between `40` and `200`, and `User` will use the custom value.
 
 See page 30 of the manual.
 
