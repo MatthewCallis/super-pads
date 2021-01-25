@@ -56,7 +56,7 @@
     "eslint-plugin-react": "^7.22.0",
     "eslint-plugin-react-hooks": "^4.2.0",
     "eslint-plugin-security": "^1.4.0",
-    "eslint-plugin-unicorn": "^25.0.1",
+    "eslint-plugin-unicorn": "^27.0.0",
     "eslint-plugin-xss": "^0.1.10",
     "node-sass": "^5.0.0"
   },
