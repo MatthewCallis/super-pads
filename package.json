@@ -62,7 +62,7 @@
   },
   "dependencies": {
     "@uttori/audio-padinfo": "^1.2.2",
-    "@uttori/audio-wave": "^1.6.1",
+    "@uttori/audio-wave": "^2.0.0",
     "ffmpeg-static-electron": "^2.0.1",
     "fluent-ffmpeg": "^2.1.2"
   },
