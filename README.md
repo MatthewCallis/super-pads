@@ -88,6 +88,11 @@ Features I have planned to work on as time permits, roughly in order:
 
 ## Change Log
 
+## [1.2.0](https://github.com/MatthewCallis/super-pads) - 2020-04-04
+
+- 🧰 Update to Electron 12 and rebuild.
+- 🧰 More fixes for importing some even weirder WAV files.
+
 ## [1.1.1](https://github.com/MatthewCallis/super-pads) - 2020-01-02
 
 - 🧰 Forgot to bump the version number in the previous release 🙃
