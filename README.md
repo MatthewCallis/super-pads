@@ -23,6 +23,11 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 1. If any error comes up you will see it above the pad matrix, click it to dismiss.
 1. If you think something should be working but it not, please [file an issue](https://github.com/MatthewCallis/super-pads/issues) or [tweet at me](https://twitter.com/superfamicom/status/1343989480160522240).
 
+### Video Tutorials
+
+- [https://www.youtube.com/watch?v=DIjpT0F07uU](Super Pads: a New Program for Loading Sounds Onto Your SP-404SX)
+- [Short Super Pads Tutorial by pattyperk](https://streamable.com/k0yun0)
+
 ## Tempo Mode
 
 `Tempo Mode` is another name for the `Time Modify` / `Time Adjust` settings when adjusting the BPM, where turning the knob all the way to the left is `Off`, so the sample will play at its original length, turning the knob all the way to the right is `Pattern` and will set the sample to play at the tempo of the pattern. The BPM can be between `40` and `200`, and `User` will use the custom value.
