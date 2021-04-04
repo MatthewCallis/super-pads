@@ -4,14 +4,16 @@
 
 Super Pads helps manage samples on a SP-404SX. To use:
 
-## Latest Version: v1.1.1 (2021-01-02)
+## Latest Version: v1.2.0 (2021-04-04)
 
-- Fix issue with some errant WAV files preventing SD cards from being read.
+- Update to [Electron v12](https://www.electronjs.org/releases/stable#12.0.2)
+- Fix more issues with some errant WAV files preventing SD cards from being read.
 
-- [Download for macOS](https://github.com/MatthewCallis/super-pads/releases/download/v1.1.1/Super.Pads-mac.dmg)
-- [Download for Windows (x64)](https://github.com/MatthewCallis/super-pads/releases/download/v1.1.1/Super.Pads-win.exe)
+- [Download for macOS](https://github.com/MatthewCallis/super-pads/releases/download/1.2.0/Super.Pads-mac.dmg)
+- [Download for Windows (x64)](https://github.com/MatthewCallis/super-pads/releases/download/1.2.0/Super.Pads-win.exe)
+- [Download for Linux (AppImage)](https://github.com/MatthewCallis/super-pads/releases/download/1.2.0/Super.Pads-linux.AppImage)
 
-Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version. Personally I leave the apps in the root of my SD card to make adjustments on any Windows or macOS machine. Linux support should _just work_ but I haven't tested it personally. SD Card files are changed and not backed up, use at your own risk.
+Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version. Personally I leave the apps in the root of my SD card to make adjustments on any Windows or macOS machine. Linux support should _just work_ but I haven't tested it personally (but have been told it works). **SD Card files are changed and _NOT_ backed up, use at your own risk**.
 
 ## How to Use
 
