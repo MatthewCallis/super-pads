@@ -1,8 +1,8 @@
 # Super Pads / スーパーパッド
 
-![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
+Super Pads helps manage samples on a SP-404SX.
 
-Super Pads helps manage samples on a SP-404SX. To use:
+![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
 
 ## Latest Version: v1.2.0 (2021-04-04)
 
@@ -26,6 +26,8 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 1. If you think something should be working but it not, please [file an issue](https://github.com/MatthewCallis/super-pads/issues) or [tweet at me](https://twitter.com/superfamicom/status/1343989480160522240).
 
 ### Video Tutorials
+
+Some super kind folks have made videos showing how to use Super Pads:
 
 - [Super Pads: a New Program for Loading Sounds Onto Your SP-404SX](https://www.youtube.com/watch?v=DIjpT0F07uU)
 - [Short Super Pads Tutorial by lilblizzard97](https://www.tiktok.com/@lilblizzard97/video/6933257457384819973) / [Mirror](https://streamable.com/k0yun0)
