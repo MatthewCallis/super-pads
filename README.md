@@ -8,6 +8,7 @@ Super Pads helps manage samples on a SP-404SX.
 
 - Update to [Electron v12](https://www.electronjs.org/releases/stable#12.0.2)
 - Fix more issues with some errant WAV files preventing SD cards from being read.
+- **NOTE**: Make sure you remove any `super-pads.json` files from the root of your SD card when upgrading, should they exist.
 
 - [Download for macOS](https://github.com/MatthewCallis/super-pads/releases/download/1.2.0/Super.Pads-mac.dmg)
 - [Download for Windows (x64)](https://github.com/MatthewCallis/super-pads/releases/download/1.2.0/Super.Pads-win.exe)
