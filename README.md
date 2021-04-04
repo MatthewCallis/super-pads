@@ -26,12 +26,15 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 ### Video Tutorials
 
 - [Super Pads: a New Program for Loading Sounds Onto Your SP-404SX](https://www.youtube.com/watch?v=DIjpT0F07uU)
-- [Short Super Pads Tutorial by lilblizzard97](https://www.tiktok.com/@lilblizzard97/video/6933257457384819973)
-- [Short Super Pads Tutorial by lilblizzard97 Mirror by u/pattyperk](https://streamable.com/k0yun0)
+- [Short Super Pads Tutorial by lilblizzard97](https://www.tiktok.com/@lilblizzard97/video/6933257457384819973) / [Mirror](https://streamable.com/k0yun0)
 
 ## Tempo Mode
 
-`Tempo Mode` is another name for the `Time Modify` / `Time Adjust` settings when adjusting the BPM, where turning the knob all the way to the left is `Off`, so the sample will play at its original length, turning the knob all the way to the right is `Pattern` and will set the sample to play at the tempo of the pattern. The BPM can be between `40` and `200`, and `User` will use the custom value.
+`Tempo Mode` is another name for the `Time Modify` / `Time Adjust` settings when adjusting the BPM, where turning the knob all the way to the left is Off `oFF`, so the sample will play at its original length.
+
+Turning the knob all the way to the right is Pattern `Ptn` and will set the sample to play at the tempo of the pattern. The BPM can be between `40` and `200`, and `User` will use the custom value.
+
+The BPM can only be adjusted to any value from 0.5 to ~1.3 times the original BPM on the machine.
 
 See page 30 of the manual.
 

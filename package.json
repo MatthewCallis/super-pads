@@ -1,6 +1,6 @@
 {
   "name": "super-pads",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Super Pads helps manage samples on a SP-404SX",
   "author": "Matthew Callis <matthew.callis@gmail.com>",
   "contributors": [],
@@ -153,6 +153,7 @@
         "node_modules/ffmpeg-static-electron/index.js",
         "node_modules/ffmpeg-static-electron/bin/linux${/*}"
       ],
+      "category": "Utility",
       "files": [
         "!node_modules/fluent-ffmpeg/doc${/*}",
         "!node_modules/fluent-ffmpeg/tools${/*}",
