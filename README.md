@@ -26,7 +26,8 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 ### Video Tutorials
 
 - [Super Pads: a New Program for Loading Sounds Onto Your SP-404SX](https://www.youtube.com/watch?v=DIjpT0F07uU)
-- [Short Super Pads Tutorial by pattyperk](https://streamable.com/k0yun0)
+- [Short Super Pads Tutorial by lilblizzard97](https://www.tiktok.com/@lilblizzard97/video/6933257457384819973)
+- [Short Super Pads Tutorial by lilblizzard97 Mirror by u/pattyperk](https://streamable.com/k0yun0)
 
 ## Tempo Mode
 
