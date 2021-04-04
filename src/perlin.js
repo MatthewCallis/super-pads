@@ -27,17 +27,19 @@
     this.x = x; this.y = y; this.z = z;
   }
 
-  Grad.prototype.dot2 = function (x, y) {
+  Grad.prototype.dot2 = function dot2(x, y) {
     return this.x * x + this.y * y;
   };
 
-  Grad.prototype.dot3 = function (x, y, z) {
+  Grad.prototype.dot3 = function dot3(x, y, z) {
     return this.x * x + this.y * y + this.z * z;
   };
 
-  const grad3 = [new Grad(1, 1, 0), new Grad(-1, 1, 0), new Grad(1, -1, 0), new Grad(-1, -1, 0),
+  const grad3 = [
+    new Grad(1, 1, 0), new Grad(-1, 1, 0), new Grad(1, -1, 0), new Grad(-1, -1, 0),
     new Grad(1, 0, 1), new Grad(-1, 0, 1), new Grad(1, 0, -1), new Grad(-1, 0, -1),
-    new Grad(0, 1, 1), new Grad(0, -1, 1), new Grad(0, 1, -1), new Grad(0, -1, -1)];
+    new Grad(0, 1, 1), new Grad(0, -1, 1), new Grad(0, 1, -1), new Grad(0, -1, -1),
+  ];
 
   const p = [151, 160, 137, 91, 90, 15,
     131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23,
@@ -53,8 +55,8 @@
     49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254,
     138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180];
   // To remove the need for index wrapping, double the permutation table length
-  const perm = new Array(512);
-  const gradP = new Array(512);
+  const perm = Array.from({ length: 512 });
+  const gradP = Array.from({ length: 512 });
 
   // This isn't a very good seeding function, but it works ok. It supports 2^16
   // different seed values. Write something better if you need more seeds.
@@ -92,7 +94,7 @@
   const G3 = 1 / 6;
 
   // 2D simplex noise
-  perlinModule.simplex2 = function (xin, yin) {
+  perlinModule.simplex2 = function simplex2(xin, yin) {
     let n0; let n1; let
       n2; // Noise contributions from the three corners
     // Skew the input space to determine which simplex cell we're in
@@ -152,7 +154,7 @@
   };
 
   // 3D simplex noise
-  perlinModule.simplex3 = function (xin, yin, zin) {
+  perlinModule.simplex3 = function simplex3(xin, yin, zin) {
     let n0; let n1; let n2; let
       n3; // Noise contributions from the four corners
 
@@ -254,7 +256,7 @@
   }
 
   // 2D Perlin Noise
-  perlinModule.perlin2 = function (x, y) {
+  perlinModule.perlin2 = function perlin2(x, y) {
     // Find unit grid cell containing point
     let X = Math.floor(x); let
       Y = Math.floor(y);
@@ -281,7 +283,7 @@
   };
 
   // 3D Perlin Noise
-  perlinModule.perlin3 = function (x, y, z) {
+  perlinModule.perlin3 = function perlin3(x, y, z) {
     // Find unit grid cell containing point
     let X = Math.floor(x); let Y = Math.floor(y); let
       Z = Math.floor(z);

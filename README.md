@@ -35,6 +35,25 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 
 See page 30 of the manual.
 
+## macOS Tips
+
+To disable and remove the dot files from your SD Cards and free up some space, run these commands in your Terminal of choice where `<FS NAME>` is your SD Card, by default on the name of card that came with the SP-404SX is `SP-404SX`, so you would access it like `/Volumes/SP-404SX/`:
+
+```sh
+# Prevent the OS from using DS files on USB drives
+sudo defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
+
+# Disable Spotlifht from index this drive
+sudo mdutil -i off /Volumes/<FS NAME>
+
+# Remove existing cruft
+cd /Volumes/<FS NAME>
+sudo rm -rf .{DS_Store,fseventsd,Spotlight-V*,Trashes}
+
+# If this has been used on a Windows OS, you can remove the `System Volume Information` as well
+sudo rm -rf System\ Volume\ Information/
+```
+
 ## Notes
 
 Super Pads makes use of two libraries I wrote to play with my own SP-404SX, [uttori-audio-padinfo](https://github.com/uttori/uttori-audio-padinfo) for parsing and writing the `PAD_INFO.BIN` file and [uttori-audio-wave](https://github.com/uttori/uttori-audio-wave) for adding the `RLND` header to the Wave files out of FFmpeg, and an Electron wrapper to make it easier to use.

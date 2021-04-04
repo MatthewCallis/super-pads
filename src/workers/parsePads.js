@@ -26,7 +26,7 @@ onmessage = (event) => {
   // Add file meta-data for each pad with a file
   if (pads.length > 0) {
     const files = fs.readdirSync(`${root}/ROLAND/SP-404SX/SMPL/`);
-    files.forEach((file) => {
+    for (const file of files) {
       if (file[0] !== '.' && path.extname(file) === '.WAV') {
         // This is only bonus data, don't rely on it
         try {
@@ -47,7 +47,7 @@ onmessage = (event) => {
       } else {
         // console.log('Extra File:', file);
       }
-    });
+    }
   }
 
   postMessage({ success: true, pads });

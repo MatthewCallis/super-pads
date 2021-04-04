@@ -3,8 +3,6 @@ const { ipcRenderer } = require('electron');
 
 const formatBytes = require('./src/formatBytes.js');
 
-// TODO save JSON state to root
-
 let state = {
   root: '',
   pads: {},
@@ -22,7 +20,7 @@ loading.addEventListener('click', () => {
 });
 const speed = 0.0005;
 const showLoading = () => {
-  document.querySelectorAll('.loading canvas').forEach((e) => e.remove());
+  for (const e of document.querySelectorAll('.loading canvas')) e.remove();
   loading.style.display = 'block';
   const res = Math.ceil(window.innerHeight / 32);
   let w = Math.ceil(window.innerWidth / res);
@@ -62,7 +60,7 @@ const showLoading = () => {
 
 const hideLoading = () => {
   cancelAnimationFrame(requestId);
-  document.querySelectorAll('.loading canvas').forEach((e) => e.remove());
+  for (const e of document.querySelectorAll('.loading canvas')) e.remove();
   loading.style.display = 'none';
 };
 
@@ -91,7 +89,7 @@ write.addEventListener('click', async () => {
   const directory = `${state.root}/ROLAND/SP-404SX/SMPL/`;
   const encodes = [];
   // Loop over files that need to be fully converted and convert them.
-  Object.values(state.pads).filter((pad) => pad.convert).forEach((pad) => {
+  for (const pad of Object.values(state.pads).filter((pad) => pad.convert)) {
     if (state.pads[pad.label].channels === 'Convert') {
       state.pads[pad.label].channels = 'Mono';
     }
@@ -101,17 +99,17 @@ write.addEventListener('click', async () => {
       directory,
       pad: state.pads[pad.label],
     }));
-  });
+  }
 
   // Loop over files that need to be converted from Stereo to Mono and convert them.
-  Object.values(state.pads).filter((pad) => pad.channels === 'Convert').forEach((pad) => {
+  for (const pad of Object.values(state.pads).filter((pad) => pad.channels === 'Convert')) {
     state.pads[pad.label].channels = 'Mono';
     encodes.push(encodeFileAsync({
       file: state.pads[pad.label].filename,
       directory,
       pad: state.pads[pad.label],
     }));
-  });
+  }
 
   const finished = await Promise.all(encodes).catch((error) => {
     hideLoading();
@@ -120,39 +118,38 @@ write.addEventListener('click', async () => {
 
   // Loop over output of the encodedFiles
   if (finished && Array.isArray(finished)) {
-    finished.forEach((message) => {
+    for (const message of finished) {
       const { pad, size, error } = message.data;
       if (error) {
         showError(error);
-        return;
+        continue;
       }
       state.pads[pad.label].avaliable = false;
       state.pads[pad.label].size = size;
       state.pads[pad.label].originalSampleEnd = size;
       state.pads[pad.label].userSampleEnd = size;
-    });
+    }
   }
 
   // Remove any files marked to be deleted
   const removed = [];
-  Object.values(state.pads).filter((pad) => pad.remove).forEach((pad) => {
+  for (const pad of Object.values(state.pads).filter((pad) => pad.remove)) {
     removed.push(removeFileAsync({
       file: `${directory}${state.pads[pad.label].filename}`,
-      directory,
       pad: state.pads[pad.label],
     }));
-  });
+  }
 
   // Remove the pad info for deleted files by setting to the defaults.
   const deleted = await Promise.all(removed).catch((error) => {
     hideLoading();
     showError(error);
   });
-  deleted.forEach((message) => {
+  for (const message of deleted) {
     const { pad, error } = message.data;
     if (error) {
       showError(error);
-      return;
+      continue;
     }
     state.pads[pad.label] = {
       originalSampleStart: 512,
@@ -170,7 +167,7 @@ write.addEventListener('click', async () => {
       originalTempo: 120,
       userTempo: 120,
     };
-  });
+  }
 
   // Write the new PAD_INFO.BIN file
   encodePads({
@@ -196,7 +193,7 @@ const togglePicker = (show) => {
   document.querySelector('.right .top .folder-selector').style.display = show ? 'none' : 'flex';
   document.querySelector('.right .bottom .write-card').style.display = show ? 'block' : 'none';
 
-  document.querySelectorAll('.right .pad-list').forEach((node) => node.classList.remove('open'));
+  for (const node of document.querySelectorAll('.right .pad-list')) node.classList.remove('open');
   document.querySelector(`.right .pad-list.${state.currentBank}`).classList.add('open');
 };
 
@@ -358,7 +355,7 @@ const buildPads = (pad) => {
   container.classList.add(pad.remove ? 'delete-pad' : 'pad');
   container.textContent = pad.label;
   container.addEventListener('click', (event) => {
-    document.querySelectorAll('.right .pad-list .pad').forEach((node) => node.classList.remove('selected'));
+    for (const node of document.querySelectorAll('.right .pad-list .pad')) node.classList.remove('selected');
     event.target.classList.add('selected');
     renderLeft(pad.label);
   });
@@ -369,20 +366,20 @@ const renderPads = () => {
   togglePicker(true);
 
   // Empty banks
-  ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].forEach((bank) => {
+  for (const bank of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) {
     const container = document.querySelector(`.right .middle .bank-${bank}`);
     const cNode = container.cloneNode(false);
     container.parentNode.replaceChild(cNode, container);
-  });
+  }
 
   // Build pads
-  Object.values(state.pads).forEach((pad) => {
+  for (const pad of Object.values(state.pads)) {
     const container = document.querySelector(`.right .middle .bank-${pad.label[0].toLowerCase()}`);
     container.append(buildPads(pad));
-  });
+  }
 
   // Update DOM
-  document.querySelectorAll('.pad-list').forEach((node) => node.classList.remove('open'));
+  for (const node of document.querySelectorAll('.pad-list')) node.classList.remove('open');
   document.querySelector(`.pad-list.${state.currentBank}`).classList.add('open');
   document.querySelector('.bank-selector select').value = state.currentBank;
   renderLeft(state.currentPad);
@@ -397,7 +394,7 @@ document.querySelector('button.choose-folder').addEventListener('click', () => {
 // Listen for Bank Changes
 document.querySelector('.bank-selector select').addEventListener('change', (event) => {
   state.currentBank = event.target.value;
-  document.querySelectorAll('.pad-list').forEach((node) => node.classList.remove('open'));
+  for (const node of document.querySelectorAll('.pad-list')) node.classList.remove('open');
   document.querySelector(`.pad-list.${state.currentBank}`).classList.add('open');
 }, false);
 
@@ -437,14 +434,14 @@ const parsePads = () => {
   worker.onmessage = (message) => {
     hideLoading();
     const { pads } = message.data;
-    pads.forEach((pad) => {
+    for (const pad of pads) {
       state.pads[pad.label] = {
         ...state.pads[pad.label],
         ...pad,
         convert: false,
         remove: false,
       };
-    });
+    }
     renderPads();
   };
   worker.addEventListener('error', (werror) => {

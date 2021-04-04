@@ -28,7 +28,7 @@
     "fonts/**/*"
   ],
   "engines": {
-    "node": ">=12"
+    "node": ">=14"
   },
   "scripts": {
     "start": "electron .",
@@ -40,12 +40,12 @@
     "package-win": "electron-builder build --win --x64"
   },
   "devDependencies": {
-    "electron": "^11.1.1",
+    "electron": "^12.0.2",
     "electron-builder": "^22.10.5",
     "electron-icon-maker": "0.0.5",
-    "eslint": "^7.22.0",
+    "eslint": "^7.23.0",
     "eslint-config-airbnb": "^18.2.1",
-    "eslint-plugin-ava": "^11.0.0",
+    "eslint-plugin-ava": "^12.0.0",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-jsdoc": "^32.3.0",
     "eslint-plugin-jsx-a11y": "^6.4.1",
@@ -56,13 +56,13 @@
     "eslint-plugin-react": "^7.23.1",
     "eslint-plugin-react-hooks": "^4.2.0",
     "eslint-plugin-security": "^1.4.0",
-    "eslint-plugin-unicorn": "^28.0.2",
+    "eslint-plugin-unicorn": "^29.0.0",
     "eslint-plugin-xss": "^0.1.10",
     "node-sass": "^5.0.0"
   },
   "dependencies": {
     "@uttori/audio-padinfo": "^1.2.2",
-    "@uttori/audio-wave": "^2.0.0",
+    "@uttori/audio-wave": "^2.1.0",
     "ffmpeg-static-electron": "^2.0.1",
     "fluent-ffmpeg": "^2.1.2"
   },
