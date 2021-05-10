@@ -58,7 +58,7 @@
     "eslint-plugin-security": "^1.4.0",
     "eslint-plugin-unicorn": "^29.0.0",
     "eslint-plugin-xss": "^0.1.10",
-    "node-sass": "^5.0.0"
+    "node-sass": "^6.0.0"
   },
   "dependencies": {
     "@uttori/audio-padinfo": "^1.2.2",
