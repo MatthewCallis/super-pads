@@ -63,7 +63,7 @@
   "dependencies": {
     "@uttori/audio-padinfo": "^1.2.2",
     "@uttori/audio-wave": "^2.1.0",
-    "ffmpeg-static-electron": "^2.0.1",
+    "ffmpeg-static-electron": "^2.0.3",
     "fluent-ffmpeg": "^2.1.2"
   },
   "build": {
