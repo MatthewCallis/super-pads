@@ -15,35 +15,35 @@ if (!gotTheLock) {
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 620,
-    height: 540,
+    width: 1200,
+    height: 840,
     title: 'Super Pads',
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#FFF',
     // transparent: true,
     frame: process.platform === 'darwin',
-    resizable: false,
+    resizable: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      enableRemoteModule: true,
+      // enableRemoteModule: true,
       nodeIntegrationInWorker: true,
-      devTools: false,
+      // devTools: false,
     },
   });
 
   // Disable Refresh
-  if (process.platform === 'darwin') {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([]));
-  } else {
-    mainWindow.removeMenu();
-  }
+  // if (process.platform === 'darwin') {
+  //   Menu.setApplicationMenu(Menu.buildFromTemplate([]));
+  // } else {
+  //   mainWindow.removeMenu();
+  // }
 
   // and load the index.html of the app.
   mainWindow.loadFile('index.html');
 
   // Open the DevTools.
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
 
   // Open external links in the browser
   mainWindow.webContents.on('new-window', (e, url) => {
