@@ -114,9 +114,6 @@
       "target": [
         "dmg"
       ],
-      "electronLanguages": [
-        "en"
-      ],
       "icon": "icons/icon.icns"
     },
     "win": {
