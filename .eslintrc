@@ -5,8 +5,7 @@
     "plugin:node/recommended",
     "plugin:optimize-regex/all",
     "plugin:ramda/recommended",
-    "plugin:security/recommended",
-    "plugin:unicorn/recommended"
+    "plugin:security/recommended"
   ],
   "plugins": [
     "ava",
@@ -16,7 +15,6 @@
     "optimize-regex",
     "ramda",
     "security",
-    "unicorn",
     "xss"
   ],
   "env": {
@@ -60,14 +58,6 @@
     "optimize-regex/optimize-regex": "warn",
     "security/detect-non-literal-fs-filename": 0,
     "security/detect-non-literal-require": 0,
-    "security/detect-object-injection": 0,
-    "unicorn/catch-error-name": 0,
-    "unicorn/filename-case": 0,
-    "unicorn/no-for-loop": 0,
-    "unicorn/no-fn-reference-in-iterator": 0,
-    "unicorn/no-null": 0,
-    "unicorn/no-reduce": 0,
-    "unicorn/no-useless-undefined": 0,
-    "unicorn/prevent-abbreviations": 0
+    "security/detect-object-injection": 0
   }
 }

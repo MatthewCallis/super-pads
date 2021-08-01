@@ -178,9 +178,34 @@ body {
       align-items: center;
       justify-content: space-between;
       user-select: none;
+      max-height: 78px;
 
+      #waveform {
+        position: absolute;
+        z-index: 0;
+      }
+      .pad-label {
+        z-index: 1;
+      }
       .meta-data {
         text-align: right;
+        z-index: 1;
+      }
+      .audio-preview {
+        width: 70px;
+        display: flex;
+        justify-content: space-evenly;
+        z-index: 1;
+
+        button {
+          border: none;
+          background: none;
+          box-shadow: none;
+          cursor: pointer;
+          padding: 0;
+          margin: 0;
+          font-size: 24px;
+        }
       }
       h1 {
         margin: 0;

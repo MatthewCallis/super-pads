@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8">
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-    <meta http-equiv="Content-Security-Policy" content="img-src 'self' data:; default-src 'self'; script-src 'self'">
-    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="img-src 'self' data:; default-src 'self'; script-src 'self'; worker-src 'self' 'unsafe-inline' blob:;">
+    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self' 'unsafe-inline' blob:;">
     <link rel="stylesheet" type="text/css" href="style.css">
     <title>Super Pads</title>
   </head>
@@ -120,7 +120,12 @@
             </div>
           </div>
           <div class="current-pad">
+            <canvas id="waveform" width="240" height="78"></canvas>
             <h1 class="pad-label">A1</h1>
+            <div class="audio-preview">
+              <button class="play">▶️</button>
+              <button class="pause">⏸</button>
+            </div>
             <div class="meta-data">
               <h3 class="file-size">0 KB</h3>
               <h3 class="file-type">WAVE</h3>

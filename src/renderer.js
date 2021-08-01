@@ -1,6 +1,6 @@
 /* eslint-disable no-use-before-define */
 const { ipcRenderer } = require('electron');
-
+const WaveformData = require('waveform-data');
 const formatBytes = require('./src/formatBytes.js');
 
 let state = {
@@ -282,6 +282,84 @@ const renderLeft = (label) => {
   // userSampleEnd: 385388
   // userSampleStart: 512
 
+  // Audio Preview
+  const path = `${state.root}/ROLAND/SP-404SX/SMPL/${pad.filename}`;
+  const audioContext = new AudioContext();
+  // renderAudioWaveform({ path });
+  try {
+    fetch(path)
+      .then((response) => response.arrayBuffer())
+      .then((buffer) => {
+        const options = {
+          audio_context: audioContext,
+          array_buffer: buffer,
+          scale: 128,
+        };
+
+        return new Promise((resolve, reject) => {
+          WaveformData.createFromAudio(options, (err, waveform) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(waveform);
+            }
+          });
+        });
+      }).then((waveform) => {
+        console.log(`Waveform has ${waveform.channels} channels`);
+        console.log(`Waveform has length ${waveform.length} points`);
+        const scaleY = (amplitude, height) => {
+          const range = 256;
+          const offset = 128;
+
+          return height - ((amplitude + offset) * height) / range;
+        };
+
+        const canvas = document.querySelector('#waveform');
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#222831';
+        ctx.beginPath();
+
+        const channel = waveform.channel(0);
+
+        // Loop forwards, drawing the upper half of the waveform
+        for (let x = 0; x < waveform.length; x++) {
+          const val = channel.max_sample(x);
+          ctx.lineTo(x + 0.5, scaleY(val, canvas.height) + 0.5);
+        }
+
+        // Loop backwards, drawing the lower half of the waveform
+        for (let x = waveform.length - 1; x >= 0; x--) {
+          const val = channel.min_sample(x);
+          ctx.lineTo(x + 0.5, scaleY(val, canvas.height) + 0.5);
+        }
+
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
+      });
+  } catch (error) {
+    console.error(error);
+  }
+
+  // Audio Preview
+  const audio = new Audio(path);
+  audio.load();
+  document.querySelector('button.play').disabled = true;
+  document.querySelector('button.pause').disabled = true;
+  audio.addEventListener('canplaythrough', (_event) => {
+    document.querySelector('button.play').disabled = false;
+    document.querySelector('button.pause').disabled = false;
+  });
+
+  document.querySelector('button.play').addEventListener('click', (_event) => {
+    console.log('PLAY');
+    audio.play(); // Promise
+  });
+  document.querySelector('button.pause').addEventListener('click', (_event) => {
+    audio.pause(); // Promise
+  });
+
   document.querySelector('input.original-file').value = pad.externalFile || '';
 
   document.querySelector('button.remove-pad').disabled = pad.avaliable;
@@ -411,7 +489,11 @@ ipcRenderer.on('pickSDCard-task-finished', (event, { valid, root, error }) => {
   } else {
     state.root = root;
 
-    loadState({ root });
+    // TODO: Need a better way of detecting state changes, otherwise we see issues:
+    // https://github.com/MatthewCallis/super-pads/issues/108
+    // https://github.com/MatthewCallis/super-pads/issues/121
+    // loadState({ root });
+    parsePads();
   }
 });
 ipcRenderer.on('pickFile-task-finished', (event, { file, error }) => {
@@ -430,7 +512,6 @@ ipcRenderer.on('pickFile-task-finished', (event, { file, error }) => {
 // #region Workers
 const parsePads = () => {
   const worker = new Worker('./src/workers/parsePads.js');
-  // eslint-disable-next-line unicorn/prefer-add-event-listener
   worker.onmessage = (message) => {
     hideLoading();
     const { pads } = message.data;
@@ -454,7 +535,6 @@ const parsePads = () => {
 
 const encodePads = ({ file, directory, pads }) => {
   const worker = new Worker('./src/workers/encodePads.js');
-  // eslint-disable-next-line unicorn/prefer-add-event-listener
   worker.onmessage = (message) => {
     hideLoading();
 
@@ -476,7 +556,6 @@ const encodePads = ({ file, directory, pads }) => {
 
 const encodeFileAsync = ({ file, directory, pad }) => new Promise((resolve, reject) => {
   const worker = new Worker('./src/workers/encodeFile.js');
-  // eslint-disable-next-line unicorn/prefer-add-event-listener
   worker.onmessage = resolve;
   worker.addEventListener('error', reject);
   worker.postMessage({ file, directory, pad });
@@ -484,7 +563,6 @@ const encodeFileAsync = ({ file, directory, pad }) => new Promise((resolve, reje
 
 const removeFileAsync = ({ file, pad }) => new Promise((resolve, reject) => {
   const worker = new Worker('./src/workers/removeFile.js');
-  // eslint-disable-next-line unicorn/prefer-add-event-listener
   worker.onmessage = resolve;
   worker.addEventListener('error', reject);
   worker.postMessage({ file, pad });
@@ -492,7 +570,6 @@ const removeFileAsync = ({ file, pad }) => new Promise((resolve, reject) => {
 
 const saveState = () => {
   const worker = new Worker('./src/workers/saveState.js');
-  // eslint-disable-next-line unicorn/prefer-add-event-listener
   worker.onmessage = (message) => {
     const { error } = message.data;
     if (error) {
@@ -508,7 +585,6 @@ const saveState = () => {
 
 const loadState = ({ root }) => {
   const worker = new Worker('./src/workers/loadState.js');
-  // eslint-disable-next-line unicorn/prefer-add-event-listener
   worker.onmessage = (message) => {
     const { state: newState, error } = message.data;
     if (error) {
@@ -528,5 +604,22 @@ const loadState = ({ root }) => {
     showError(werror);
   });
   worker.postMessage({ root });
+};
+
+const renderAudioWaveform = ({ path }) => {
+  const worker = new Worker('./src/workers/renderAudioWaveform.js');
+  worker.onmessage = (message) => {
+    const { ctx, error } = message.data;
+    if (error) {
+      // showError(error);
+      parsePads();
+      return;
+    }
+    console.log('ctx', ctx);
+  };
+  worker.addEventListener('error', (werror) => {
+    showError(werror);
+  });
+  worker.postMessage({ path });
 };
 // #endregion

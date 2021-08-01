@@ -1,18 +1,18 @@
 {
   "name": "super-pads",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Super Pads helps manage samples on a SP-404SX",
   "author": "Matthew Callis <matthew.callis@gmail.com>",
   "contributors": [],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/uttori/uttori-audio-wave.git"
+    "url": "git+https://github.com/MatthewCallis/super-pads.git"
   },
   "bugs": {
-    "url": "https://github.com/uttori/uttori-audio-wave/issues"
+    "url": "https://github.com/MatthewCallis/super-pads/issues"
   },
-  "homepage": "https://github.com/uttori/uttori-audio-wave",
+  "homepage": "https://github.com/MatthewCallis/super-pads",
   "keywords": [
     "sp404",
     "sp404sx",
@@ -40,31 +40,31 @@
     "package-win": "electron-builder build --win --x64"
   },
   "devDependencies": {
-    "electron": "^12.0.2",
-    "electron-builder": "^22.10.5",
+    "electron": "^13.1.7",
+    "electron-builder": "^22.11.7",
     "electron-icon-maker": "0.0.5",
-    "eslint": "^7.23.0",
+    "eslint": "^7.32.0",
     "eslint-config-airbnb": "^18.2.1",
     "eslint-plugin-ava": "^12.0.0",
-    "eslint-plugin-import": "^2.22.1",
-    "eslint-plugin-jsdoc": "^32.3.0",
+    "eslint-plugin-import": "^2.23.4",
+    "eslint-plugin-jsdoc": "^36.0.6",
     "eslint-plugin-jsx-a11y": "^6.4.1",
     "eslint-plugin-no-inferred-method-name": "^2.0.0",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-optimize-regex": "^1.2.0",
+    "eslint-plugin-optimize-regex": "^1.2.1",
     "eslint-plugin-ramda": "^2.5.1",
-    "eslint-plugin-react": "^7.23.1",
+    "eslint-plugin-react": "^7.24.0",
     "eslint-plugin-react-hooks": "^4.2.0",
     "eslint-plugin-security": "^1.4.0",
-    "eslint-plugin-unicorn": "^29.0.0",
     "eslint-plugin-xss": "^0.1.10",
-    "node-sass": "^5.0.0"
+    "node-sass": "^6.0.1"
   },
   "dependencies": {
     "@uttori/audio-padinfo": "^1.2.2",
     "@uttori/audio-wave": "^2.1.0",
-    "ffmpeg-static-electron": "^2.0.1",
-    "fluent-ffmpeg": "^2.1.2"
+    "ffmpeg-static-electron": "^2.0.3",
+    "fluent-ffmpeg": "^2.1.2",
+    "waveform-data": "^4.1.0"
   },
   "build": {
     "appId": "org.superfamicom.super-pads",
