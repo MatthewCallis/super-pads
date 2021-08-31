@@ -40,7 +40,7 @@
     "package-win": "electron-builder build --win --x64"
   },
   "devDependencies": {
-    "electron": "^13.1.7",
+    "electron": "^14.0.0",
     "electron-builder": "^22.11.7",
     "electron-icon-maker": "0.0.5",
     "eslint": "^7.32.0",
