@@ -64,7 +64,7 @@
     "@uttori/audio-wave": "^2.1.0",
     "ffmpeg-static-electron": "^2.0.3",
     "fluent-ffmpeg": "^2.1.2",
-    "waveform-data": "^4.1.0"
+    "waveform-data": "^4.2.1"
   },
   "build": {
     "appId": "org.superfamicom.super-pads",
