@@ -4,17 +4,14 @@ Super Pads helps manage samples on a SP-404SX.
 
 ![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
 
-## Latest Version: v1.2.0 (2021-04-04)
+## Latest Version: v1.2.1 (2021-07-31)
 
-- Update to [Electron v12](https://www.electronjs.org/releases/stable#12.0.2)
-- Fix more issues with some errant WAV files preventing SD cards from being read.
-- **NOTE**: Make sure you remove any `super-pads.json` files from the root of your SD card when upgrading, should they exist.
+- Update to Electron 13 and rebuild.
+- Fix issues with overwriting samples made on device, this requires reading from the card every time unfortunately.
+- Added Waveform Preview, not great but will be better in the future
+- Added Audio preview of pads with Play ▶️ & Pause ⏸ buttons
 
-- [Download for macOS](https://github.com/MatthewCallis/super-pads/releases/download/1.2.0/Super.Pads-mac.dmg)
-- [Download for Windows (x64)](https://github.com/MatthewCallis/super-pads/releases/download/1.2.0/Super.Pads-win.exe)
-- [Download for Linux (AppImage)](https://github.com/MatthewCallis/super-pads/releases/download/1.2.0/Super.Pads-linux.AppImage)
-
-Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version. Personally I leave the apps in the root of my SD card to make adjustments on any Windows or macOS machine. Linux support should _just work_ but I haven't tested it personally (but have been told it works). **SD Card files are changed and _NOT_ backed up, use at your own risk**.
+This is the last version with this UI. The next version will have all the pad banks available at once. Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version.
 
 ## How to Use
 
