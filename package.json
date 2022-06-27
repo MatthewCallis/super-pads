@@ -56,7 +56,7 @@
     "eslint-plugin-react": "^7.24.0",
     "eslint-plugin-react-hooks": "^4.2.0",
     "eslint-plugin-security": "^1.4.0",
-    "eslint-plugin-xss": "^0.1.10",
+    "eslint-plugin-xss": "^0.1.12",
     "node-sass": "^6.0.1"
   },
   "dependencies": {
