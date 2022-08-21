@@ -13,13 +13,26 @@
       <div class="loading">
         <h1>LOADING</h1>
       </div>
-      <div class="left startup">
+      <div class="top">
         <div class="welcome">
           <p>Super Pads helps manage samples on a SP-404SX. Select a SD Card root to the right to get started.</p>
           <h1><a href="https://github.com/MatthewCallis/super-pads" target="_blank" rel="noopener noreferrer" title="Super Pads Homepage">Super Pads<br />スーパーパッド</a></h1>
           <h3><a href="https://open.spotify.com/artist/0FYTwSXr4Q7Ujml4wW7Y97" target="_blank" rel="noopener noreferrer" title="Matthew Callis on Spotify">by Matthew Callis</a></h3>
         </div>
         <div class="pad-container">
+          <div class="current-pad">
+            <canvas id="waveform" width="240" height="78"></canvas>
+            <h1 class="pad-label">A1</h1>
+            <div class="audio-preview">
+              <button class="play">▶️</button>
+              <button class="pause">⏸</button>
+            </div>
+            <div class="meta-data">
+              <h3 class="file-size">0 KB</h3>
+              <h3 class="file-type">WAVE</h3>
+              <h3 class="duration">00:00:00</h3>
+            </div>
+          </div>
           <div class="pad-info">
             <div class="row">
               <label tooltip="Hold down to play." flow="down">
@@ -40,9 +53,7 @@
                   <div class="layer"></div>
                 </div>
               </label>
-            </div>
 
-            <div class="row">
               <div class="button slider lofi">
                 <input type="checkbox" class="lofi-button checkbox" name="lofi-button" title="Lo-Fi or Stereo Processing" />
                 <label for="lofi-button" class="knobs">
@@ -57,9 +68,7 @@
                 </label>
                 <div class="layer"></div>
               </div>
-            </div>
 
-            <div class="row">
               <label for="bpm">
                 <span>BPM</span>
                 <input class="input bpm" name="bpm" type="number" step="1" min="20" max="999" title="Detect Beats Per Minute" />
@@ -68,9 +77,7 @@
                 <span>User Set BPM</span>
                 <input class="input bpm-user" name="bpm-user" type="number" step="1" min="20" max="999" title="User Set Beats Per Minute" />
               </label>
-            </div>
 
-            <div class="row">
               <label for="tempo-mode" tooltip="Pattern, User Set, or Off">
                 <span>TEMPO MODE</span>
                 <select name="tempo-mode" class="tempo-mode" title="Which Tempo Mode is the sample using?">
@@ -107,34 +114,17 @@
                   <input type="text" name="original-file" class="original-file" />
                 </label>
               </div>
-            </div>
 
-            <div class="row">
               <button class="drop-zone" type="button">
                 Drop File or Pick File
               </button>
-            </div>
 
-            <div class="row">
               <button type="button" class="remove-pad">Remove Pad</button>
-            </div>
-          </div>
-          <div class="current-pad">
-            <canvas id="waveform" width="240" height="78"></canvas>
-            <h1 class="pad-label">A1</h1>
-            <div class="audio-preview">
-              <button class="play">▶️</button>
-              <button class="pause">⏸</button>
-            </div>
-            <div class="meta-data">
-              <h3 class="file-size">0 KB</h3>
-              <h3 class="file-type">WAVE</h3>
-              <h3 class="duration">00:00:00</h3>
             </div>
           </div>
         </div>
       </div>
-      <div class="right">
+      <!-- <div class="right">
         <div class="top">
           <div class="folder-selector">
             <label>SD CARD</label>
@@ -171,6 +161,26 @@
         </div>
         <div class="bottom">
           <button class="write-card" type="button">Write SD Card</button>
+        </div>
+      </div> -->
+      <div class="errors"></div>
+      <div class="middle">
+        <div class="pad-list bank-a open"><div class="pad pad-1 selected active-pad">A1</div><div class="pad pad-2 active-pad">A2</div><div class="pad pad-3 active-pad">A3</div><div class="pad pad-4 active-pad">A4</div><div class="pad pad-5 active-pad">A5</div><div class="pad pad-6 active-pad">A6</div><div class="pad pad-7 active-pad">A7</div><div class="pad pad-8 active-pad">A8</div><div class="pad pad-9 active-pad">A9</div><div class="pad pad-10 active-pad">A10</div><div class="pad pad-11 active-pad">A11</div><div class="pad pad-12 active-pad">A12</div></div>
+        <div class="pad-list bank-b"><div class="pad pad-1 active-pad">B1</div><div class="pad pad-2 active-pad">B2</div><div class="pad pad-3 active-pad">B3</div><div class="pad pad-4 active-pad">B4</div><div class="pad pad-5 active-pad">B5</div><div class="pad pad-6 open-pad">B6</div><div class="pad pad-7 open-pad">B7</div><div class="pad pad-8 open-pad">B8</div><div class="pad pad-9 open-pad">B9</div><div class="pad pad-10 open-pad">B10</div><div class="pad pad-11 open-pad">B11</div><div class="pad pad-12 open-pad">B12</div></div>
+        <div class="pad-list bank-c"><div class="pad pad-1 open-pad">C1</div><div class="pad pad-2 open-pad">C2</div><div class="pad pad-3 open-pad">C3</div><div class="pad pad-4 open-pad">C4</div><div class="pad pad-5 open-pad">C5</div><div class="pad pad-6 open-pad">C6</div><div class="pad pad-7 open-pad">C7</div><div class="pad pad-8 open-pad">C8</div><div class="pad pad-9 open-pad">C9</div><div class="pad pad-10 open-pad">C10</div><div class="pad pad-11 open-pad">C11</div><div class="pad pad-12 open-pad">C12</div></div>
+        <div class="pad-list bank-d"><div class="pad pad-1 open-pad">D1</div><div class="pad pad-2 open-pad">D2</div><div class="pad pad-3 open-pad">D3</div><div class="pad pad-4 open-pad">D4</div><div class="pad pad-5 open-pad">D5</div><div class="pad pad-6 open-pad">D6</div><div class="pad pad-7 open-pad">D7</div><div class="pad pad-8 open-pad">D8</div><div class="pad pad-9 open-pad">D9</div><div class="pad pad-10 open-pad">D10</div><div class="pad pad-11 open-pad">D11</div><div class="pad pad-12 open-pad">D12</div></div>
+        <div class="pad-list bank-e"><div class="pad pad-1 open-pad">E1</div><div class="pad pad-2 open-pad">E2</div><div class="pad pad-3 open-pad">E3</div><div class="pad pad-4 open-pad">E4</div><div class="pad pad-5 open-pad">E5</div><div class="pad pad-6 open-pad">E6</div><div class="pad pad-7 open-pad">E7</div><div class="pad pad-8 open-pad">E8</div><div class="pad pad-9 open-pad">E9</div><div class="pad pad-10 open-pad">E10</div><div class="pad pad-11 open-pad">E11</div><div class="pad pad-12 open-pad">E12</div></div>
+        <div class="pad-list bank-f"><div class="pad pad-1 open-pad">F1</div><div class="pad pad-2 open-pad">F2</div><div class="pad pad-3 open-pad">F3</div><div class="pad pad-4 open-pad">F4</div><div class="pad pad-5 open-pad">F5</div><div class="pad pad-6 open-pad">F6</div><div class="pad pad-7 open-pad">F7</div><div class="pad pad-8 open-pad">F8</div><div class="pad pad-9 open-pad">F9</div><div class="pad pad-10 open-pad">F10</div><div class="pad pad-11 open-pad">F11</div><div class="pad pad-12 open-pad">F12</div></div>
+        <div class="pad-list bank-g"><div class="pad pad-1 open-pad">G1</div><div class="pad pad-2 open-pad">G2</div><div class="pad pad-3 open-pad">G3</div><div class="pad pad-4 open-pad">G4</div><div class="pad pad-5 open-pad">G5</div><div class="pad pad-6 open-pad">G6</div><div class="pad pad-7 open-pad">G7</div><div class="pad pad-8 open-pad">G8</div><div class="pad pad-9 open-pad">G9</div><div class="pad pad-10 open-pad">G10</div><div class="pad pad-11 open-pad">G11</div><div class="pad pad-12 open-pad">G12</div></div>
+        <div class="pad-list bank-h"><div class="pad pad-1 open-pad">H1</div><div class="pad pad-2 open-pad">H2</div><div class="pad pad-3 open-pad">H3</div><div class="pad pad-4 open-pad">H4</div><div class="pad pad-5 open-pad">H5</div><div class="pad pad-6 open-pad">H6</div><div class="pad pad-7 open-pad">H7</div><div class="pad pad-8 open-pad">H8</div><div class="pad pad-9 open-pad">H9</div><div class="pad pad-10 open-pad">H10</div><div class="pad pad-11 open-pad">H11</div><div class="pad pad-12 open-pad">H12</div></div>
+        <div class="pad-list bank-i"><div class="pad pad-1 open-pad">I1</div><div class="pad pad-2 open-pad">I2</div><div class="pad pad-3 open-pad">I3</div><div class="pad pad-4 open-pad">I4</div><div class="pad pad-5 open-pad">I5</div><div class="pad pad-6 open-pad">I6</div><div class="pad pad-7 open-pad">I7</div><div class="pad pad-8 open-pad">I8</div><div class="pad pad-9 open-pad">I9</div><div class="pad pad-10 open-pad">I10</div><div class="pad pad-11 open-pad">I11</div><div class="pad pad-12 open-pad">I12</div></div>
+        <div class="pad-list bank-j"><div class="pad pad-1 active-pad">J1</div><div class="pad pad-2 active-pad">J2</div><div class="pad pad-3 open-pad">J3</div><div class="pad pad-4 active-pad">J4</div><div class="pad pad-5 open-pad">J5</div><div class="pad pad-6 active-pad">J6</div><div class="pad pad-7 active-pad">J7</div><div class="pad pad-8 active-pad">J8</div><div class="pad pad-9 active-pad">J9</div><div class="pad pad-10 active-pad">J10</div><div class="pad pad-11 active-pad">J11</div><div class="pad pad-12 active-pad">J12</div></div>
+        <div class="buttons">
+          <div class="folder-selector" style="display: none;">
+            <label>SD CARD</label>
+            <button class="choose-folder" type="button">Pick Folder</button>
+          </div>
+          <button class="write-card" type="button" disabled>Write SD Card</button>
         </div>
       </div>
     </div>
