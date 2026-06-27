@@ -4,7 +4,7 @@ Super Pads helps manage samples on a SP-404SX.
 
 ![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
 
-## Latest Version: v1.2.1 (2021-07-31) - macoS Builds added 2026-06-27
+## Latest Version: v1.2.1 (2021-07-31) - macOS Builds added 2026-06-27
 
 - Update to Electron 13 and rebuild.
 - Fix issues with overwriting samples made on device, this requires reading from the card every time unfortunately.
