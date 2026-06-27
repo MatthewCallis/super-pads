@@ -1,0 +1,36 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    name: Build macOS dmgs (arm64 + x64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build tooling runs on a modern native arm64 Node so the dmg packaging
+      # step's `xcrun` call matches the runner architecture. The packaged app
+      # still bundles its own Electron runtime and is unaffected by this version.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - run: npm install
+
+      - name: Build Apple Silicon and Intel dmgs
+        run: npx electron-builder build --mac --publish never
+        env:
+          # No signing identity in CI; build unsigned artifacts.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: super-pads-macos-dmg
+          path: dist/*.dmg
+          if-no-files-found: error

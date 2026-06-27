@@ -36,12 +36,14 @@
     "make-icons": "electron-icon-maker --input=./Art/icon.png --output=./",
     "build": "electron-builder build --mac",
     "package-mac": "electron-builder build --mac",
+    "package-mac-arm": "electron-builder build --mac --arm64",
+    "package-mac-x64": "electron-builder build --mac --x64",
     "package-linux": "electron-builder build --linux",
     "package-win": "electron-builder build --win --x64"
   },
   "devDependencies": {
     "electron": "^13.1.7",
-    "electron-builder": "^22.11.7",
+    "electron-builder": "^23.6.0",
     "electron-icon-maker": "0.0.5",
     "eslint": "^7.32.0",
     "eslint-config-airbnb": "^18.2.1",
@@ -94,6 +96,7 @@
       "appId": "org.superfamicom.super-pads",
       "category": "public.app-category.productivity",
       "type": "distribution",
+      "artifactName": "${productName}-${os}-${arch}.${ext}",
       "entitlements": "build-resources/entitlements.plist",
       "entitlementsInherit": "build-resources/entitlements.plist",
       "files": [
@@ -112,7 +115,13 @@
         "!Art"
       ],
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "icon": "icons/icon.icns"
     },

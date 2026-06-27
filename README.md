@@ -59,6 +59,34 @@ sudo rm -rf .{DS_Store,fseventsd,Spotlight-V*,Trashes}
 sudo rm -rf System\ Volume\ Information/
 ```
 
+## Building from Source
+
+Install the dependencies and run the build for your platform. On macOS this produces a separate `.dmg` for each architecture:
+
+```sh
+npm install
+
+# macOS — builds both Apple Silicon (arm64) and Intel (x64) dmgs
+npm run build
+#  -> dist/Super Pads-mac-arm64.dmg   (Apple Silicon)
+#  -> dist/Super Pads-mac-x64.dmg     (Intel)
+
+# Build a single macOS architecture
+npm run package-mac-arm   # Apple Silicon only
+npm run package-mac-x64   # Intel only
+
+# Other platforms
+npm run package-win
+npm run package-linux
+```
+
+The bundled FFmpeg ([`ffmpeg-static-electron`](https://www.npmjs.com/package/ffmpeg-static-electron)) ships native binaries for both `arm64` and `x64`, and the correct one is selected automatically at runtime, so each build runs natively with no Rosetta.
+
+### macOS build notes
+
+- Code signing is skipped automatically when no Developer ID certificate is available; set up signing/notarization for distribution.
+- The `.dmg` packaging step shells out to `python3` (provided by recent electron-builder). Building on Apple Silicon with an Intel (Rosetta) Node can make that step pick the wrong architecture for `xcrun`; building with a native `arm64` Node avoids it.
+
 ## Notes
 
 Super Pads makes use of two libraries I wrote to play with my own SP-404SX, [uttori-audio-padinfo](https://github.com/uttori/uttori-audio-padinfo) for parsing and writing the `PAD_INFO.BIN` file and [uttori-audio-wave](https://github.com/uttori/uttori-audio-wave) for adding the `RLND` header to the Wave files out of FFmpeg, and an Electron wrapper to make it easier to use.
