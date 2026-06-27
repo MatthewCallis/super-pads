@@ -43,23 +43,7 @@
   },
   "devDependencies": {
     "electron": "^13.1.7",
-    "electron-builder": "^23.6.0",
-    "electron-icon-maker": "0.0.5",
-    "eslint": "^7.32.0",
-    "eslint-config-airbnb": "^18.2.1",
-    "eslint-plugin-ava": "^12.0.0",
-    "eslint-plugin-import": "^2.23.4",
-    "eslint-plugin-jsdoc": "^36.0.6",
-    "eslint-plugin-jsx-a11y": "^6.4.1",
-    "eslint-plugin-no-inferred-method-name": "^2.0.0",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-optimize-regex": "^1.2.1",
-    "eslint-plugin-ramda": "^2.5.1",
-    "eslint-plugin-react": "^7.24.0",
-    "eslint-plugin-react-hooks": "^4.2.0",
-    "eslint-plugin-security": "^1.4.0",
-    "eslint-plugin-xss": "^0.1.10",
-    "node-sass": "^6.0.1"
+    "electron-builder": "^23.6.0"
   },
   "dependencies": {
     "@uttori/audio-padinfo": "^1.2.2",
