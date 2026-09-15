@@ -61,12 +61,26 @@ sudo rm -rf System\ Volume\ Information/
 
 ## Building from Source
 
-Install the dependencies and run the build for your platform. On macOS this produces a separate `.dmg` for each architecture:
+Use Node.js 24 or newer (Node.js 24 LTS is selected by `.nvmrc`). Electron 44 requires macOS 13 Ventura or newer and Windows 10 or newer. See [Electron's breaking changes](https://www.electronjs.org/docs/latest/breaking-changes) for platform support details.
+
+Install the locked dependencies and run the build for your platform. On macOS this produces a separate `.dmg` for each architecture:
 
 ```sh
-npm install
+# If you use nvm:
+nvm install
+nvm use
 
-# macOS — builds both Apple Silicon (arm64) and Intel (x64) dmgs
+npm ci
+npm start
+
+# Validate audio workers and the Electron UI
+npm test
+npm run test:smoke
+
+# Compile styles once, or watch with npm run scss
+npm run scss-build
+
+# macOS - builds both Apple Silicon (arm64) and Intel (x64) dmgs
 npm run build
 #  -> dist/Super Pads-mac-arm64.dmg   (Apple Silicon)
 #  -> dist/Super Pads-mac-x64.dmg     (Intel)
@@ -80,12 +94,33 @@ npm run package-win
 npm run package-linux
 ```
 
-The bundled FFmpeg ([`ffmpeg-static-electron`](https://www.npmjs.com/package/ffmpeg-static-electron)) ships native binaries for both `arm64` and `x64`, and the correct one is selected automatically at runtime, so each build runs natively with no Rosetta.
+The bundled FFmpeg ([`ffmpeg-static-electron`](https://www.npmjs.com/package/ffmpeg-static-electron)) ships native binaries for both `arm64` and `x64`, and the correct one is selected automatically at runtime, so each build runs natively with no Rosetta. Electron downloads its development binary on the first `npm start` or `npm run test:smoke`; those first runs require network access.
+
+The audio libraries and FFmpeg binary package remain at their latest published versions. `fluent-ffmpeg` is updated to its final release, 2.1.3, but is deprecated upstream; replacing that wrapper is a separate migration.
+
+### Build all GitHub release assets
+
+Run this on macOS to build all five release files into `dist/`:
+
+```sh
+npm run package
+```
+
+- `Super Pads-mac-arm64.dmg` - Apple Silicon
+- `Super Pads-mac-x64.dmg` - Intel macOS
+- `Super Pads-win.exe` - Windows x64 portable app
+- `Super Pads-linux.tar.bz2` - Linux x64 archive
+- `Super Pads-linux.AppImage` - Linux x64 AppImage
+
+Upload these files to a GitHub release. The command uses `--publish never` to keep uploading a separate step. Windows and Linux targets explicitly use x64 because the bundled FFmpeg package has no ARM64 binaries for those platforms; macOS builds both architectures.
+
+Cross-platform packaging downloads additional build tools on the first run. See electron-builder's [multi-platform build requirements](https://www.electron.build/v26/docs/features/multi-platform-build/) for host prerequisites.
 
 ### macOS build notes
 
 - Code signing is skipped automatically when no Developer ID certificate is available; set up signing/notarization for distribution.
 - The `.dmg` packaging step shells out to `python3` (provided by recent electron-builder). Building on Apple Silicon with an Intel (Rosetta) Node can make that step pick the wrong architecture for `xcrun`; building with a native `arm64` Node avoids it.
+- Keep application file rules in the shared `build.files` list. Separate platform lists containing only exclusions can add a second catch-all matcher in electron-builder, inadvertently bundling other workspaces and old build outputs.
 
 ## Notes
 

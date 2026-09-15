@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require('electron');
 const fs = require('fs');
+const path = require('path');
 
 // Catch Fatal Exceptions
 process.on('uncaughtException', (_error) => {
@@ -12,6 +13,7 @@ if (!gotTheLock) {
   app.exit(0);
 }
 
+/** Create the local editor window and route web links to the default browser. */
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -24,9 +26,9 @@ function createWindow() {
     frame: process.platform === 'darwin',
     resizable: false,
     webPreferences: {
+      // The local renderer and its audio/file workers still use CommonJS and Node APIs.
       nodeIntegration: true,
       contextIsolation: false,
-      enableRemoteModule: true,
       nodeIntegrationInWorker: true,
       devTools: false,
     },
@@ -40,15 +42,17 @@ function createWindow() {
   }
 
   // and load the index.html of the app.
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile(path.join(__dirname, '..', 'index.html'));
 
   // Open the DevTools.
   // mainWindow.webContents.openDevTools();
 
-  // Open external links in the browser
-  mainWindow.webContents.on('new-window', (e, url) => {
-    e.preventDefault();
-    shell.openExternal(url);
+  // Electron 22 removed new-window. Deny child windows so they cannot inherit Node access.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (['https:', 'http:'].includes(new URL(url).protocol)) {
+      shell.openExternal(url).catch(console.error);
+    }
+    return { action: 'deny' };
   });
 
   return mainWindow;

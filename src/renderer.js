@@ -1,6 +1,6 @@
 /* eslint-disable no-use-before-define */
-const { ipcRenderer } = require('electron');
-const WaveformData = require('waveform-data');
+const { ipcRenderer, webUtils } = require('electron');
+const createWaveform = require('./src/createWaveform.js');
 const formatBytes = require('./src/formatBytes.js');
 
 let state = {
@@ -201,6 +201,7 @@ const onChange = (field) => () => {
   state.pads[state.currentPad][field] = !state.pads[state.currentPad][field];
 };
 
+/** Rebuild the selected pad's controls and asynchronously decode its audio preview. */
 const renderLeft = (label) => {
   if (!label) {
     return;
@@ -284,28 +285,14 @@ const renderLeft = (label) => {
 
   // Audio Preview
   const path = `${state.root}/ROLAND/SP-404SX/SMPL/${pad.filename}`;
+  // Each preview owns its decoding context and closes it after peak generation finishes.
   const audioContext = new AudioContext();
-  // renderAudioWaveform({ path });
   try {
     fetch(path)
       .then((response) => response.arrayBuffer())
-      .then((buffer) => {
-        const options = {
-          audio_context: audioContext,
-          array_buffer: buffer,
-          scale: 128,
-        };
-
-        return new Promise((resolve, reject) => {
-          WaveformData.createFromAudio(options, (err, waveform) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(waveform);
-            }
-          });
-        });
-      }).then((waveform) => {
+      .then((buffer) => audioContext.decodeAudioData(buffer))
+      .then(createWaveform)
+      .then((waveform) => {
         console.log(`Waveform has ${waveform.channels} channels`);
         console.log(`Waveform has length ${waveform.length} points`);
         const scaleY = (amplitude, height) => {
@@ -337,7 +324,7 @@ const renderLeft = (label) => {
         ctx.closePath();
         ctx.stroke();
         ctx.fill();
-      });
+      }).catch(console.error).finally(() => audioContext.close());
   } catch (error) {
     console.error(error);
   }
@@ -401,8 +388,14 @@ const renderLeft = (label) => {
     event.stopPropagation();
 
     if (event.dataTransfer.files.length > 0) {
-      const { path, size } = event.dataTransfer.files[0];
-      setExternalFile(path, size);
+      const file = event.dataTransfer.files[0];
+      // Electron 32 removed File.path; virtual files have no filesystem path to convert.
+      const path = webUtils.getPathForFile(file);
+      if (path) {
+        setExternalFile(path, file.size);
+      } else {
+        showError('Drop a file from your computer.');
+      }
     }
 
     dropZone.classList.remove('gradient-background');
@@ -606,20 +599,4 @@ const loadState = ({ root }) => {
   worker.postMessage({ root });
 };
 
-const renderAudioWaveform = ({ path }) => {
-  const worker = new Worker('./src/workers/renderAudioWaveform.js');
-  worker.onmessage = (message) => {
-    const { ctx, error } = message.data;
-    if (error) {
-      // showError(error);
-      parsePads();
-      return;
-    }
-    console.log('ctx', ctx);
-  };
-  worker.addEventListener('error', (werror) => {
-    showError(werror);
-  });
-  worker.postMessage({ path });
-};
 // #endregion
