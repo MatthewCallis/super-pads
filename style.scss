@@ -246,19 +246,21 @@ body {
           -webkit-appearance: none;
           background-image: var(--arrow-white);
           background-size: 24px;
-          background-position: 92% center;
+          background-position: right 6px center;
           background-repeat: no-repeat;
           background-color: #222831;
-          width: 100px;
+          width: 110px;
           border-radius: 2px;
           box-shadow: none;
           border: 1px solid #739df2;
           color: #ffffff;
           transition: all 0.3s ease-in-out;
-          padding: 5px 10px 5px 10px;
+          // Reserve space for the 24px arrow so the selected bank never overlaps it.
+          padding: 5px 32px 5px 10px;
           font-weight: 700;
           font-size: 16px;
-          text-align: right;
+          text-align: left;
+          text-align-last: left;
           outline: none;
         }
       }

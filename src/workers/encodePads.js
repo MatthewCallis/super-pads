@@ -1,27 +1,12 @@
-const fs = require('fs');
+const path = require('node:path');
+const { atomicWrite } = require('../fileStorage');
+const { encodePads } = require('../padMetadata');
 
-const { AudioPadInfo } = require('@uttori/audio-padinfo');
-
-onmessage = (event) => {
-  const { file, directory, pads } = event.data;
-
-  if (!file) {
-    postMessage({ success: false, error: 'No file.' });
-    return;
-  }
-  if (!directory) {
-    postMessage({ success: false, error: 'No directory.' });
-    return;
-  }
-  if (!pads || !Array.isArray(pads) || pads.length === 0) {
-    postMessage({ success: false, error: 'No pads.' });
-    return;
-  }
-
-  // Build the PAD_INFO.BIN binary data
-  const parts = pads.map((pad) => AudioPadInfo.encodePad(pad));
-  const output = Buffer.concat(parts);
-  fs.writeFileSync(`${directory}${file}`, output, { flag: 'w' });
-
-  postMessage({ success: true });
+/** Safely replace standalone metadata; the UI uses the complete writeCard transaction. */
+onmessage = ({ data: { file, directory, pads } }) => {
+  try {
+    if (file !== 'PAD_INFO.BIN' || !directory) throw new Error('Invalid metadata destination.');
+    atomicWrite(path.join(directory, file), encodePads(pads));
+    postMessage({ success: true });
+  } catch (error) { postMessage({ success: false, error: error.message }); }
 };

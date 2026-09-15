@@ -1,4 +1,4 @@
-const fs = require('fs');
+const { atomicWrite } = require('../fileStorage');
 
 onmessage = (event) => {
   const { root, state } = event.data;
@@ -13,7 +13,7 @@ onmessage = (event) => {
   }
 
   try {
-    fs.writeFileSync(`${root}/super-pads.json`, JSON.stringify(state, null, 2), { flag: 'w' });
+    atomicWrite(`${root}/super-pads.json`, JSON.stringify(state, null, 2));
     postMessage({ success: true });
   } catch (error) {
     postMessage({ success: false, error });

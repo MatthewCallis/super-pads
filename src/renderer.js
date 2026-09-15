@@ -1,6 +1,8 @@
 /* eslint-disable no-use-before-define */
 const { ipcRenderer, webUtils } = require('electron');
-const createWaveform = require('./src/createWaveform.js');
+const AudioPreview = require('./src/audioPreview.js');
+const path = require('node:path');
+const runWorker = require('./src/runWorker.js');
 const formatBytes = require('./src/formatBytes.js');
 
 let state = {
@@ -12,7 +14,7 @@ let state = {
 };
 
 // Loading
-let requestId;
+let requestId = null;
 const loading = document.querySelector('.loading');
 window.noise.seed(Math.random());
 loading.addEventListener('click', () => {
@@ -20,6 +22,10 @@ loading.addEventListener('click', () => {
 });
 const speed = 0.0005;
 const showLoading = () => {
+  // Repeated callers share one animation; removing its canvas alone does not cancel its loop.
+  if (requestId !== null) return;
+  document.querySelector('.left').inert = true;
+  document.querySelector('.right').inert = true;
   for (const e of document.querySelectorAll('.loading canvas')) e.remove();
   loading.style.display = 'block';
   const res = Math.ceil(window.innerHeight / 32);
@@ -60,6 +66,9 @@ const showLoading = () => {
 
 const hideLoading = () => {
   cancelAnimationFrame(requestId);
+  requestId = null;
+  document.querySelector('.left').inert = !cardReady;
+  document.querySelector('.right').inert = false;
   for (const e of document.querySelectorAll('.loading canvas')) e.remove();
   loading.style.display = 'none';
 };
@@ -81,111 +90,54 @@ errors.addEventListener('click', () => {
   hideError();
 });
 
-// Write to SD Card
+const preview = new AudioPreview({
+  canvas: document.querySelector('#waveform'),
+  play: document.querySelector('button.play'),
+  pause: document.querySelector('button.pause'),
+  onError: showError,
+});
+let controlsController;
+
+// A single operation owns the card until staging, commit, and recovery have finished.
+let cardReady = false;
+let busy = false;
 const write = document.querySelector('button.write-card');
 write.addEventListener('click', async () => {
+  if (busy || !cardReady) return;
+  busy = true;
+  write.disabled = true;
+  hideError();
+  preview.clear();
   showLoading();
-
-  const directory = `${state.root}/ROLAND/SP-404SX/SMPL/`;
-  const encodes = [];
-  // Loop over files that need to be fully converted and convert them.
-  for (const pad of Object.values(state.pads).filter((pad) => pad.convert)) {
-    if (state.pads[pad.label].channels === 'Convert') {
-      state.pads[pad.label].channels = 'Mono';
+  try {
+    const { pads, warning } = await runWorker('writeCard', { root: state.root, state });
+    preview.cache.clear();
+    state.pads = Object.fromEntries(pads.map((pad) => [pad.label, pad]));
+    renderPads();
+    if (warning) showError(warning);
+  } catch (error) {
+    // Keep pending edits on failure; incomplete recovery must be retried by reopening the card first.
+    if (error.recoveryRequired) {
+      cardReady = false;
+      togglePicker(false);
     }
-    state.pads[pad.label].convert = false;
-    encodes.push(encodeFileAsync({
-      file: state.pads[pad.label].externalFile,
-      directory,
-      pad: state.pads[pad.label],
-    }));
-  }
-
-  // Loop over files that need to be converted from Stereo to Mono and convert them.
-  for (const pad of Object.values(state.pads).filter((pad) => pad.channels === 'Convert')) {
-    state.pads[pad.label].channels = 'Mono';
-    encodes.push(encodeFileAsync({
-      file: state.pads[pad.label].filename,
-      directory,
-      pad: state.pads[pad.label],
-    }));
-  }
-
-  const finished = await Promise.all(encodes).catch((error) => {
-    hideLoading();
     showError(error);
-  });
-
-  // Loop over output of the encodedFiles
-  if (finished && Array.isArray(finished)) {
-    for (const message of finished) {
-      const { pad, size, error } = message.data;
-      if (error) {
-        showError(error);
-        continue;
-      }
-      state.pads[pad.label].avaliable = false;
-      state.pads[pad.label].size = size;
-      state.pads[pad.label].originalSampleEnd = size;
-      state.pads[pad.label].userSampleEnd = size;
-    }
-  }
-
-  // Remove any files marked to be deleted
-  const removed = [];
-  for (const pad of Object.values(state.pads).filter((pad) => pad.remove)) {
-    removed.push(removeFileAsync({
-      file: `${directory}${state.pads[pad.label].filename}`,
-      pad: state.pads[pad.label],
-    }));
-  }
-
-  // Remove the pad info for deleted files by setting to the defaults.
-  const deleted = await Promise.all(removed).catch((error) => {
+  } finally {
+    busy = false;
+    write.disabled = !cardReady;
     hideLoading();
-    showError(error);
-  });
-  for (const message of deleted) {
-    const { pad, error } = message.data;
-    if (error) {
-      showError(error);
-      continue;
-    }
-    state.pads[pad.label] = {
-      originalSampleStart: 512,
-      originalSampleEnd: 512,
-      userSampleStart: 512,
-      userSampleEnd: 512,
-      volume: 127,
-      lofi: false,
-      loop: false,
-      gate: true,
-      reverse: false,
-      format: 'WAVE',
-      channels: 2,
-      tempoMode: 'Off',
-      originalTempo: 120,
-      userTempo: 120,
-    };
   }
-
-  // Write the new PAD_INFO.BIN file
-  encodePads({
-    file: state.padInfo,
-    directory,
-    pads: Object.values(state.pads),
-  });
-
-  // Write state out to root for keeping meta data
-  saveState();
 });
 
 const setExternalFile = (path, size = 0) => {
+  if (busy || !cardReady) return;
   state.pads[state.currentPad].convert = true;
   state.pads[state.currentPad].avaliable = false;
   state.pads[state.currentPad].externalFile = path;
   state.pads[state.currentPad].externalFileSize = size;
-  renderPads();
+  state.pads[state.currentPad].remove = false;
+  updatePad(state.currentPad);
+  renderLeft(state.currentPad);
 };
 
 const togglePicker = (show) => {
@@ -201,7 +153,15 @@ const onChange = (field) => () => {
   state.pads[state.currentPad][field] = !state.pads[state.currentPad][field];
 };
 
-/** Rebuild the selected pad's controls and asynchronously decode its audio preview. */
+/** Resolve the pending import or card sample; empty pads have no preview work. */
+const previewPath = (pad) => {
+  if (!pad) return undefined;
+  if (pad.convert) return pad.externalFile;
+  if (pad.samplePresent) return path.join(state.root, 'ROLAND', 'SP-404SX', 'SMPL', pad.filename);
+  return undefined;
+};
+
+/** Update stable controls and cancel listeners owned by the previous selection. */
 const renderLeft = (label) => {
   if (!label) {
     return;
@@ -213,8 +173,11 @@ const renderLeft = (label) => {
   }
   state.currentPad = label;
 
-  // Clear all event listeners
-  document.querySelector('.left').outerHTML = document.querySelector('.left').outerHTML;
+  controlsController?.abort();
+  controlsController = new AbortController();
+  const listen = (selector, type, listener) => {
+    document.querySelector(selector).addEventListener(type, listener, { signal: controlsController.signal });
+  };
 
   document.querySelector('.left').dataset.label = label;
   document.querySelector('.left').classList.remove('startup', 'drop-zone');
@@ -223,18 +186,18 @@ const renderLeft = (label) => {
 
   // NOTE: Checkboxes invert to fit the checkbox style, only for display.
   document.querySelector('input.lofi-button').checked = !pad.lofi;
-  document.querySelector('input.lofi-button').addEventListener('change', onChange('lofi'));
+  listen('input.lofi-button', 'change', onChange('lofi'));
 
   document.querySelector('input.gate-button').checked = !pad.gate;
-  document.querySelector('input.gate-button').addEventListener('change', onChange('gate'));
+  listen('input.gate-button', 'change', onChange('gate'));
 
   document.querySelector('input.loop-button').checked = !pad.loop;
-  document.querySelector('input.loop-button').addEventListener('change', onChange('loop'));
+  listen('input.loop-button', 'change', onChange('loop'));
 
   document.querySelector('input.reverse-off-button').checked = !pad.reverse;
-  document.querySelector('input.reverse-off-button').addEventListener('change', onChange('reverse'));
+  listen('input.reverse-off-button', 'change', onChange('reverse'));
 
-  if (pad.channels === 'Mono' || pad.channels === 'Convert') {
+  if (pad.channels === 'Mono' || pad.targetChannels === 'Mono') {
     document.querySelector('input.mono-stereo-button').checked = true;
   } else {
     document.querySelector('input.mono-stereo-button').checked = false;
@@ -246,113 +209,47 @@ const renderLeft = (label) => {
   } else {
     document.querySelector('input.mono-stereo-button').disabled = false;
     document.querySelector('input.mono-stereo-button').readonly = false;
-    document.querySelector('input.mono-stereo-button').addEventListener('change', (event) => {
+    listen('input.mono-stereo-button', 'change', (event) => {
       if (event.target.checked) {
-        state.pads[state.currentPad].channels = 'Mono';
+        state.pads[state.currentPad].targetChannels = 'Mono';
       } else {
-        state.pads[state.currentPad].channels = 'Stereo';
+        delete state.pads[state.currentPad].targetChannels;
       }
+      updatePad(state.currentPad);
     });
   }
 
   document.querySelector('select.tempo-mode').value = pad.tempoMode;
-  document.querySelector('select.tempo-mode').addEventListener('change', (event) => {
+  listen('select.tempo-mode', 'change', (event) => {
     state.pads[state.currentPad].tempoMode = event.target.value;
   });
 
   document.querySelector('input.bpm').value = pad.originalTempo;
-  document.querySelector('input.bpm').addEventListener('change', (event) => {
+  listen('input.bpm', 'change', (event) => {
     state.pads[state.currentPad].originalTempo = Number.parseInt(event.target.value, 10);
   });
 
   document.querySelector('input.bpm-user').value = pad.userTempo;
-  document.querySelector('input.bpm-user').addEventListener('change', (event) => {
+  listen('input.bpm-user', 'change', (event) => {
     state.pads[state.currentPad].userTempo = Number.parseInt(event.target.value, 10);
   });
 
   document.querySelector('.volume-numeric').textContent = `(${pad.volume})`;
   document.querySelector('input.volume').value = pad.volume;
-  document.querySelector('input.volume').addEventListener('change', (event) => {
+  listen('input.volume', 'change', (event) => {
     event.target.previousSibling.previousSibling.textContent = `(${event.target.value})`;
     state.pads[state.currentPad].volume = Number.parseInt(event.target.value, 10);
   });
 
-  // Advanced Use
-  // originalSampleEnd: 385388
-  // originalSampleStart: 512
-  // userSampleEnd: 385388
-  // userSampleStart: 512
-
-  // Audio Preview
-  const path = `${state.root}/ROLAND/SP-404SX/SMPL/${pad.filename}`;
-  // Each preview owns its decoding context and closes it after peak generation finishes.
-  const audioContext = new AudioContext();
-  try {
-    fetch(path)
-      .then((response) => response.arrayBuffer())
-      .then((buffer) => audioContext.decodeAudioData(buffer))
-      .then(createWaveform)
-      .then((waveform) => {
-        console.log(`Waveform has ${waveform.channels} channels`);
-        console.log(`Waveform has length ${waveform.length} points`);
-        const scaleY = (amplitude, height) => {
-          const range = 256;
-          const offset = 128;
-
-          return height - ((amplitude + offset) * height) / range;
-        };
-
-        const canvas = document.querySelector('#waveform');
-        const ctx = canvas.getContext('2d');
-        ctx.strokeStyle = '#222831';
-        ctx.beginPath();
-
-        const channel = waveform.channel(0);
-
-        // Loop forwards, drawing the upper half of the waveform
-        for (let x = 0; x < waveform.length; x++) {
-          const val = channel.max_sample(x);
-          ctx.lineTo(x + 0.5, scaleY(val, canvas.height) + 0.5);
-        }
-
-        // Loop backwards, drawing the lower half of the waveform
-        for (let x = waveform.length - 1; x >= 0; x--) {
-          const val = channel.min_sample(x);
-          ctx.lineTo(x + 0.5, scaleY(val, canvas.height) + 0.5);
-        }
-
-        ctx.closePath();
-        ctx.stroke();
-        ctx.fill();
-      }).catch(console.error).finally(() => audioContext.close());
-  } catch (error) {
-    console.error(error);
-  }
-
-  // Audio Preview
-  const audio = new Audio(path);
-  audio.load();
-  document.querySelector('button.play').disabled = true;
-  document.querySelector('button.pause').disabled = true;
-  audio.addEventListener('canplaythrough', (_event) => {
-    document.querySelector('button.play').disabled = false;
-    document.querySelector('button.pause').disabled = false;
-  });
-
-  document.querySelector('button.play').addEventListener('click', (_event) => {
-    console.log('PLAY');
-    audio.play(); // Promise
-  });
-  document.querySelector('button.pause').addEventListener('click', (_event) => {
-    audio.pause(); // Promise
-  });
+  preview.show(previewPath(pad));
 
   document.querySelector('input.original-file').value = pad.externalFile || '';
 
   document.querySelector('button.remove-pad').disabled = pad.avaliable;
-  document.querySelector('button.remove-pad').addEventListener('click', (_event) => {
+  listen('button.remove-pad', 'click', (_event) => {
     state.pads[state.currentPad].remove = !state.pads[state.currentPad].remove;
-    renderPads();
+    updatePad(state.currentPad);
+    renderLeft(state.currentPad);
   });
   if (pad.remove) {
     document.querySelector('button.remove-pad').textContent = 'Keep Pad';
@@ -380,10 +277,10 @@ const renderLeft = (label) => {
   // Drag & Drop
   const dropZone = document.querySelector('.left .drop-zone');
   dropZone.classList.remove('gradient-background');
-  dropZone.addEventListener('click', () => {
+  listen('.left .drop-zone', 'click', () => {
     ipcRenderer.send('pickFile');
   });
-  dropZone.addEventListener('drop', (event) => {
+  listen('.left .drop-zone', 'drop', (event) => {
     event.preventDefault();
     event.stopPropagation();
 
@@ -401,19 +298,30 @@ const renderLeft = (label) => {
     dropZone.classList.remove('gradient-background');
   });
 
-  dropZone.addEventListener('dragover', (e) => {
+  listen('.left .drop-zone', 'dragover', (e) => {
     e.preventDefault();
     e.stopPropagation();
     dropZone.classList.add('gradient-background');
   });
 
-  dropZone.addEventListener('dragenter', (_event) => {
+  listen('.left .drop-zone', 'dragenter', (_event) => {
     dropZone.classList.add('gradient-background');
   });
 
-  dropZone.addEventListener('dragleave', (_event) => {
+  listen('.left .drop-zone', 'dragleave', (_event) => {
     dropZone.classList.remove('gradient-background');
   });
+};
+
+/** Refresh one pad's state classes without replacing its click target. */
+const updatePad = (label) => {
+  const pad = state.pads[label];
+  const container = document.querySelector(`.bank-${label[0].toLowerCase()} .pad-${label.slice(1)}`);
+  if (!container) return;
+  container.classList.toggle('open-pad', pad.avaliable);
+  container.classList.toggle('active-pad', !pad.avaliable);
+  container.classList.toggle('add-pad', Boolean(pad.convert || pad.targetChannels));
+  container.classList.toggle('delete-pad', Boolean(pad.remove));
 };
 
 const buildPads = (pad) => {
@@ -426,6 +334,7 @@ const buildPads = (pad) => {
   container.classList.add(pad.remove ? 'delete-pad' : 'pad');
   container.textContent = pad.label;
   container.addEventListener('click', (event) => {
+    if (busy || !cardReady) return;
     for (const node of document.querySelectorAll('.right .pad-list .pad')) node.classList.remove('selected');
     event.target.classList.add('selected');
     renderLeft(pad.label);
@@ -471,6 +380,7 @@ document.querySelector('.bank-selector select').addEventListener('change', (even
 
 // #region IPC Main Tasks
 ipcRenderer.on('pickSDCard-task-finished', (event, { valid, root, error }) => {
+  if (busy) return;
   if (error) {
     document.querySelector('button.choose-folder').disabled = false;
     showError(error);
@@ -482,10 +392,7 @@ ipcRenderer.on('pickSDCard-task-finished', (event, { valid, root, error }) => {
   } else {
     state.root = root;
 
-    // TODO: Need a better way of detecting state changes, otherwise we see issues:
-    // https://github.com/MatthewCallis/super-pads/issues/108
-    // https://github.com/MatthewCallis/super-pads/issues/121
-    // loadState({ root });
+    // Card metadata is authoritative: saved editor state can be stale after edits on the sampler.
     parsePads();
   }
 });
@@ -502,101 +409,27 @@ ipcRenderer.on('pickFile-task-finished', (event, { file, error }) => {
 });
 // #endregion
 
-// #region Workers
-const parsePads = () => {
-  const worker = new Worker('./src/workers/parsePads.js');
-  worker.onmessage = (message) => {
-    hideLoading();
-    const { pads } = message.data;
-    for (const pad of pads) {
-      state.pads[pad.label] = {
-        ...state.pads[pad.label],
-        ...pad,
-        convert: false,
-        remove: false,
-      };
-    }
-    renderPads();
-  };
-  worker.addEventListener('error', (werror) => {
-    hideLoading();
-    showError(werror);
-  });
+/** Replace the complete card view only after a validated read; failed reads disable writing. */
+const parsePads = async () => {
+  if (busy) return;
+  busy = true;
+  cardReady = false;
+  write.disabled = true;
+  preview.clear();
   showLoading();
-  worker.postMessage({ root: state.root });
-};
-
-const encodePads = ({ file, directory, pads }) => {
-  const worker = new Worker('./src/workers/encodePads.js');
-  worker.onmessage = (message) => {
-    hideLoading();
-
-    const { error } = message.data;
-    if (error) {
-      showError(error);
-      return;
-    }
-
-    parsePads();
-  };
-  worker.addEventListener('error', (werror) => {
-    hideLoading();
-    showError(werror);
-  });
-  showLoading();
-  worker.postMessage({ file, directory, pads });
-};
-
-const encodeFileAsync = ({ file, directory, pad }) => new Promise((resolve, reject) => {
-  const worker = new Worker('./src/workers/encodeFile.js');
-  worker.onmessage = resolve;
-  worker.addEventListener('error', reject);
-  worker.postMessage({ file, directory, pad });
-});
-
-const removeFileAsync = ({ file, pad }) => new Promise((resolve, reject) => {
-  const worker = new Worker('./src/workers/removeFile.js');
-  worker.onmessage = resolve;
-  worker.addEventListener('error', reject);
-  worker.postMessage({ file, pad });
-});
-
-const saveState = () => {
-  const worker = new Worker('./src/workers/saveState.js');
-  worker.onmessage = (message) => {
-    const { error } = message.data;
-    if (error) {
-      showError(error);
-    }
-  };
-  worker.addEventListener('error', (werror) => {
-    hideLoading();
-    showError(werror);
-  });
-  worker.postMessage({ root: state.root, state });
-};
-
-const loadState = ({ root }) => {
-  const worker = new Worker('./src/workers/loadState.js');
-  worker.onmessage = (message) => {
-    const { state: newState, error } = message.data;
-    if (error) {
-      // showError(error);
-      parsePads();
-      return;
-    }
-    state = {
-      ...state,
-      ...newState,
-      root: state.root,
-    };
+  try {
+    const { pads } = await runWorker('parsePads', { root: state.root });
+    state.pads = Object.fromEntries(pads.map((pad) => [pad.label, { ...pad, convert: false, remove: false }]));
+    cardReady = true;
+    hideError();
     renderPads();
-  };
-  worker.addEventListener('error', (werror) => {
+  } catch (error) {
+    preview.clear();
+    togglePicker(false);
+    showError(`Card unavailable: ${error.message}`);
+  } finally {
+    busy = false;
+    write.disabled = !cardReady;
     hideLoading();
-    showError(werror);
-  });
-  worker.postMessage({ root });
+  }
 };
-
-// #endregion

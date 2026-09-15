@@ -4,19 +4,23 @@ const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
 const { app, BrowserWindow, dialog, shell } = require('electron');
 const { AudioWAV } = require('@uttori/audio-wave');
+const { AudioPadInfo } = require('@uttori/audio-padinfo');
 const { createCard } = require('../test/helpers');
 
 // An optional app.asar path runs the same checks against a packaged application's resources.
 let appRoot = path.join(__dirname, '..');
 if (process.argv[2]) appRoot = path.resolve(process.argv[2]);
-const card = createCard();
+const card = createCard({ seconds: 4, prefix: 'super-pads-#card-' });
+const replacement = createCard();
 const externalURLs = [];
 const rendererErrors = [];
 let finished = false;
 
 // Isolate the single-instance lock and profile, and keep dialogs/browser launches inside the fixture.
 app.setPath('userData', path.join(card.root, 'profile'));
-fs.copyFileSync(card.file, path.join(card.directory, 'A0000001.WAV'));
+for (const filename of ['A0000001.WAV', 'A0000002.WAV', 'A0000010.WAV']) {
+  fs.copyFileSync(card.file, path.join(card.directory, filename));
+}
 dialog.showOpenDialog = async (_window, options) => {
   const selected = options.properties.includes('openDirectory') ? card.root : card.file;
   return { canceled: false, filePaths: [selected] };
@@ -32,6 +36,7 @@ function finish(error) {
     if (rendererErrors.length > 0) console.error('Renderer errors:', rendererErrors);
   }
   fs.rmSync(card.root, { recursive: true, force: true });
+  fs.rmSync(replacement.root, { recursive: true, force: true });
   app.exit(error ? 1 : 0);
 }
 
@@ -48,7 +53,16 @@ async function waitFor(check, description) {
 /** Exercise the actual renderer, IPC, browser workers, file-backed drop, and waveform decoder. */
 async function checkWindow(window) {
   const contents = window.webContents;
-  const evaluate = (source) => contents.executeJavaScript(source, true);
+  const evaluate = async (source) => {
+    try { return await contents.executeJavaScript(source, true); }
+    catch (error) { throw new Error(`Renderer evaluation failed: ${source.slice(0, 180)}`, { cause: error }); }
+  };
+  await evaluate(`
+    window.smokeErrors = [];
+    window.addEventListener('error', (event) => smokeErrors.push(event.message));
+    window.addEventListener('unhandledrejection', (event) => smokeErrors.push(String(event.reason)));
+    preview.audio.muted = true;
+  `);
   assert.equal(await evaluate('typeof require'), 'function');
   assert.equal(await evaluate('document.title'), 'Super Pads');
 
@@ -100,8 +114,127 @@ async function checkWindow(window) {
   const { chunks } = AudioWAV.fromFile(fs.readFileSync(path.join(card.directory, pad.filename)));
   assert.equal(chunks.find((chunk) => chunk.type === 'format').value.sampleRate, 44100);
   assert.equal(chunks.find((chunk) => chunk.type === 'roland').value.sampleIndex, 14);
+  await checkRegressions(contents, evaluate);
+  assert.deepEqual(await evaluate('smokeErrors'), []);
   assert.deepEqual(rendererErrors, []);
-  console.log(`Electron ${process.versions.electron}: startup, links, 120 pads, audio preview, waveform, file drop, and conversion passed.`);
+  console.log(`Electron ${process.versions.electron}: startup, links, 120 pads, audio preview, waveform, file drop, full card writes, recovery-related error handling, previews, worker cleanup, and conversion passed.`);
+}
+
+/** Exercise the audit regressions through real controls, files, asynchronous media, and browser workers. */
+async function checkRegressions(contents, evaluate) {
+  const info = path.join(card.directory, 'PAD_INFO.BIN');
+  const readPads = () => AudioPadInfo.fromFile(fs.readFileSync(info)).pads;
+  const readWave = () => fs.readFileSync(path.join(card.directory, 'A0000001.WAV'));
+  async function writeCardUI() {
+    await evaluate(`document.querySelector('button.write-card').click()`);
+    await waitFor(() => evaluate('!busy'), 'card write completes');
+  }
+
+  // The preceding real file drop queued A1. Write through the UI, then use the actual mono switch.
+  await writeCardUI();
+  assert.equal(await evaluate('state.pads.A1.convert'), false);
+  assert.equal(readPads()[0].originalSampleStart, 512);
+  await evaluate(`document.querySelector('input.mono-stereo-button').click()`);
+  await writeCardUI();
+  assert.equal(readPads()[0].channels, 'Mono');
+  assert.equal(AudioWAV.fromFile(readWave()).chunks.find(c => c.type === 'format').value.channels, 1);
+
+  // New imports must reset offsets that were valid only for the longer, previous sample.
+  await evaluate(`Object.assign(state.pads.A1, { userSampleStart: 80000 }); setExternalFile(${JSON.stringify(replacement.file)});`);
+  await writeCardUI();
+  assert.equal(readPads()[0].userSampleStart, 512);
+  assert.equal(readPads()[0].userSampleEnd, readWave().length);
+  assert.ok(readWave().length < 80000);
+
+  // A failed conversion must neither commit a changed volume nor clear the pending import.
+  const previousMetadata = fs.readFileSync(info);
+  const previousWave = readWave();
+  await evaluate(`setExternalFile(${JSON.stringify(replacement.file)}); state.pads.A1.volume = 37; preview.clear();`);
+  fs.unlinkSync(replacement.file);
+  await writeCardUI();
+  assert.deepEqual(fs.readFileSync(info), previousMetadata);
+  assert.deepEqual(readWave(), previousWave);
+  assert.equal(await evaluate('state.pads.A1.convert'), true);
+  assert.equal(await evaluate('state.pads.A1.volume'), 37);
+  assert.ok(await evaluate('document.querySelector("p.errors").textContent.length > 0'));
+  // Restore the same source and prove retry uses the retained state.
+  fs.copyFileSync(card.file, replacement.file);
+  await writeCardUI();
+  assert.equal(readPads()[0].volume, 37);
+  assert.equal(await evaluate('state.pads.A1.convert'), false);
+  await waitFor(() => evaluate('!document.querySelector("button.play").disabled'), 'preview ready after retry');
+
+  await evaluate(`document.querySelector('button.play').click()`);
+  await waitFor(() => evaluate('!preview.audio.paused'), 'playback begins');
+  await evaluate(`document.querySelector('.bank-a .pad-2').click()`);
+  assert.equal(await evaluate('preview.audio.paused'), true);
+  await waitFor(() => evaluate('!document.querySelector("button.pause").disabled'), 'second pad ready');
+  await evaluate(`document.querySelector('button.pause').click()`);
+  assert.equal(await evaluate('preview.audio.paused'), true);
+  assert.equal(await evaluate('preview.audio.src.includes("%23card-")'), true);
+
+  // Gate one fetch response to force out-of-order completion, independently of disk speed.
+  await evaluate(`
+    preview.cache.clear();
+    window.smokeDraws = [];
+    window.smokeRelease = null;
+    window.smokeFetch = window.fetch;
+    window.smokeDraw = preview.draw;
+    preview.draw = function(waveform) { smokeDraws.push(state.currentPad); return smokeDraw.call(this, waveform); };
+    window.fetch = (...args) => {
+      const result = smokeFetch(...args);
+      if (String(args[0]).endsWith('A0000001.WAV')) {
+        return result.then(response => new Promise(resolve => { smokeRelease = () => resolve(response); }));
+      }
+      return result;
+    };
+    renderLeft('A1');
+  `);
+  await waitFor(() => evaluate('smokeRelease !== null'), 'held waveform fetch');
+  await evaluate(`renderLeft('A2')`);
+  await waitFor(() => evaluate('smokeDraws.length === 1'), 'current waveform drawn');
+  await evaluate('smokeRelease()');
+  await delay(100);
+  assert.deepEqual(await evaluate('smokeDraws'), ['A2']);
+  assert.ok(await evaluate('Array.from(preview.cache.values()).every(waveform => waveform.length <= 240)'));
+  await evaluate('window.fetch = smokeFetch; preview.draw = smokeDraw; undefined;');
+
+  // Show/hide remains idempotent even when separate layers request the same loading indicator.
+  const animation = await evaluate(`(() => {
+    hideLoading();
+    const raf = window.requestAnimationFrame;
+    const cancel = window.cancelAnimationFrame;
+    let next = 0;
+    const pending = new Map();
+    window.requestAnimationFrame = fn => { pending.set(++next, fn); return next; };
+    window.cancelAnimationFrame = id => pending.delete(id);
+    try {
+      showLoading(); showLoading();
+      const shown = pending.size;
+      hideLoading();
+      return { shown, hidden: pending.size, canvases: document.querySelectorAll('.loading canvas').length };
+    } finally { window.requestAnimationFrame = raf; window.cancelAnimationFrame = cancel; }
+  })()`);
+  assert.deepEqual(animation, { shown: 1, hidden: 0, canvases: 0 });
+
+  contents.debugger.attach('1.3');
+  for (let index = 0; index < 3; index++) await evaluate('parsePads()');
+  await waitFor(async () => {
+    const { targetInfos } = await contents.debugger.sendCommand('Target.getTargets');
+    return !targetInfos.some(target => target.type === 'worker');
+  }, 'all one-shot workers terminate');
+  contents.debugger.detach();
+  assert.equal(await evaluate('state.pads.A10.size'), fs.statSync(card.file).size);
+
+  // Failed reads keep a visible diagnostic and disable writes instead of accepting a partial card.
+  fs.truncateSync(info, 32);
+  await evaluate('parsePads()');
+  assert.equal(await evaluate('cardReady'), false);
+  assert.equal(await evaluate('document.querySelector("button.write-card").disabled'), true);
+  assert.match(await evaluate('document.querySelector("p.errors").textContent'), /120 pad records/);
+  fs.unlinkSync(info);
+  await evaluate('parsePads()');
+  assert.match(await evaluate('document.querySelector("p.errors").textContent'), /ENOENT/);
 }
 
 app.on('browser-window-created', (_event, window) => {
@@ -114,7 +247,7 @@ app.on('browser-window-created', (_event, window) => {
   window.webContents.once('did-finish-load', () => checkWindow(window).then(() => finish(), finish));
 });
 
-setTimeout(() => finish(new Error('Electron smoke test exceeded 45 seconds.')), 45000).unref();
+setTimeout(() => finish(new Error('Electron smoke test exceeded 90 seconds.')), 90000).unref();
 process.on('unhandledRejection', finish);
 process.on('uncaughtException', finish);
 require(path.join(appRoot, 'src', 'main.js'));
