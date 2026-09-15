@@ -1,54 +1,29 @@
-const path = require('path');
-const fs = require('fs');
+const fs = require('node:fs');
+const path = require('node:path');
+const { decodePads } = require('../padMetadata');
+const { recoverCard, SAMPLE_DIRECTORY } = require('../cardTransaction');
+const readWaveMetadata = require('../readWaveMetadata');
 
-const { AudioPadInfo } = require('@uttori/audio-padinfo');
-const { AudioWAV } = require('@uttori/audio-wave');
-
-const getLabel = (file) => file.replaceAll('.WAV', '').replaceAll('0', '');
-
-onmessage = (event) => {
-  const { root } = event.data;
-
-  if (!root) {
-    postMessage({ success: false, error: 'No root.' });
-    return;
-  }
-
-  let pads = [];
+/** Recover interrupted saves and return exactly one validated card result. */
+onmessage = ({ data: { root } }) => {
   try {
-    const data = fs.readFileSync(`${root}/ROLAND/SP-404SX/SMPL/PAD_INFO.BIN`);
-    const api = AudioPadInfo.fromFile(data);
-    pads = api.pads;
-  } catch (error) {
-    postMessage({ error });
-  }
-
-  // Add file meta-data for each pad with a file
-  if (pads.length > 0) {
-    const files = fs.readdirSync(`${root}/ROLAND/SP-404SX/SMPL/`);
-    for (const file of files) {
-      if (file[0] !== '.' && path.extname(file) === '.WAV') {
-        // This is only bonus data, don't rely on it
-        try {
-          const label = getLabel(file);
-          const pad = pads.find((p) => p.label === label);
-          if (pad) {
-            const { size } = fs.statSync(`${root}/ROLAND/SP-404SX/SMPL/${file}`);
-            const data = fs.readFileSync(`${root}/ROLAND/SP-404SX/SMPL/${file}`);
-            const { chunks } = AudioWAV.fromFile(data);
-            const { duration } = chunks.find((c) => c.type === 'data').value;
-
-            pad.duration = duration;
-            pad.size = size;
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      } else {
-        // console.log('Extra File:', file);
+    if (!root) throw new Error('No card root selected.');
+    recoverCard(root);
+    const directory = path.join(root, SAMPLE_DIRECTORY);
+    const pads = decodePads(fs.readFileSync(path.join(directory, 'PAD_INFO.BIN')));
+    for (const pad of pads) {
+      // Match the canonical filename: removing zeroes confuses pad 10 with pad 1.
+      const file = path.join(directory, pad.filename);
+      if (!fs.existsSync(file)) continue;
+      pad.samplePresent = true;
+      try {
+        const { size, duration, mtimeMs } = readWaveMetadata(file);
+        Object.assign(pad, { size, duration, mtimeMs });
+      } catch (error) {
+        // One unpreviewable sample must not hide the remaining valid card metadata.
+        pad.previewError = error.message;
       }
     }
-  }
-
-  postMessage({ success: true, pads });
+    postMessage({ success: true, pads });
+  } catch (error) { postMessage({ success: false, error: error.message }); }
 };

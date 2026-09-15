@@ -4,12 +4,21 @@ Super Pads helps manage samples on a SP-404SX.
 
 ![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
 
-## Latest Version: v1.2.1 (2021-07-31) - macOS Builds added 2026-06-27
+## Latest Version: v1.3.0 (2026-09-14)
 
-- Update to Electron 13 and rebuild.
-- Fix issues with overwriting samples made on device, this requires reading from the card every time unfortunately.
-- Added Waveform Preview, not great but will be better in the future
-- Added Audio preview of pads with Play ▶️ & Pause ⏸ buttons
+- Updated Electron to 44.3.0 and refreshed dependencies.
+- Updated external-link and drag-and-drop handling for modern Electron.
+- Made SD-card saves recoverable with staged writes, backups, rollback, and interrupted-save recovery.
+- Failed conversions now preserve pending edits for retry.
+- Fixed stereo-to-mono conversion, trim handling when replacing samples, pad-10 metadata, and invalid-card error handling.
+- Improved audio previews: switching pads stops playback, waveforms show the full sample, stale previews are cancelled, and special characters in file paths work correctly.
+- Reduced resource usage through worker cleanup, waveform caching, faster WAV scans, limited conversion concurrency, and fewer UI rebuilds.
+- Fixed accumulating loading animations and bank-dropdown text overlapping the arrow.
+- Added npm run package to build all five release assets: macOS ARM64/x64 DMGs, Windows x64 portable executable, and Linux x64 AppImage/archive.
+- Fixed oversized bundles and platform-specific FFmpeg packaging.
+- Updated icon generation and stylesheet build commands.
+- Added 20 automated tests and expanded Electron UI regression coverage.
+- Requirements: macOS 13+ or Windows 10+. Building from source requires Node.js 24+.
 
 This is the last version with this UI. The next version will have all the pad banks available at once. Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version.
 
@@ -22,6 +31,8 @@ This is the last version with this UI. The next version will have all the pad ba
 1. Click `Write SD Card` to save your changed and convert files.
 1. If any error comes up you will see it above the pad matrix, click it to dismiss.
 1. If you think something should be working but it not, please [file an issue](https://github.com/MatthewCallis/super-pads/issues) or [tweet at me](https://twitter.com/superfamicom/status/1343989480160522240).
+
+Card writes stage conversions before changing the card and keep recovery backups until the save completes. Failed conversions retain your pending edits for retry. If a save is interrupted, reopen the card in Super Pads to recover it before using it in the sampler. Leave the `.super-pads-transaction` recovery folder in place until recovery completes. Staging and backups require free space for the changed samples and their previous versions.
 
 ### Video Tutorials
 
@@ -148,6 +159,22 @@ Features I have planned to work on as time permits, roughly in order:
 - Automatic Updates
 
 ## Change Log
+
+## [1.3.0](https://github.com/MatthewCallis/super-pads/releases/tag/1.3.0) - 2026-09-14
+
+- Updated Electron to 44.3.0 and refreshed dependencies.
+- Updated external-link and drag-and-drop handling for modern Electron.
+- Made SD-card saves recoverable with staged writes, backups, rollback, and interrupted-save recovery.
+- Failed conversions now preserve pending edits for retry.
+- Fixed stereo-to-mono conversion, trim handling when replacing samples, pad-10 metadata, and invalid-card error handling.
+- Improved audio previews: switching pads stops playback, waveforms show the full sample, stale previews are cancelled, and special characters in file paths work correctly.
+- Reduced resource usage through worker cleanup, waveform caching, faster WAV scans, limited conversion concurrency, and fewer UI rebuilds.
+- Fixed accumulating loading animations and bank-dropdown text overlapping the arrow.
+- Added npm run package to build all five release assets: macOS ARM64/x64 DMGs, Windows x64 portable executable, and Linux x64 AppImage/archive.
+- Fixed oversized bundles and platform-specific FFmpeg packaging.
+- Updated icon generation and stylesheet build commands.
+- Added 20 automated tests and expanded Electron UI regression coverage.
+- Requirements: macOS 13+ or Windows 10+. Building from source requires Node.js 24+.
 
 ## [1.2.0](https://github.com/MatthewCallis/super-pads) - 2020-04-04
 

@@ -3,16 +3,16 @@ const os = require('node:os');
 const path = require('node:path');
 const { AudioPadInfo } = require('@uttori/audio-padinfo');
 
-/** Create an isolated SD card and a 0.1-second, 22.05 kHz mono PCM source. Caller removes root. */
-function createCard() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'super-pads-test-'));
+/** Create an isolated card and a 22.05 kHz mono PCM source. Duration defaults to 0.1 seconds; caller removes root. */
+function createCard({ seconds = 0.1, prefix = 'super-pads-test-' } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   const directory = path.join(root, 'ROLAND', 'SP-404SX', 'SMPL') + path.sep;
   fs.mkdirSync(directory, { recursive: true });
   fs.writeFileSync(path.join(directory, 'PAD_INFO.BIN'), Buffer.concat(
     Array.from({ length: 120 }, () => AudioPadInfo.encodePad()),
   ));
 
-  const samples = 2205;
+  const samples = Math.round(seconds * 22050);
   const wav = Buffer.alloc(44 + samples * 2);
   wav.write('RIFF', 0);
   wav.writeUInt32LE(wav.length - 8, 4);
