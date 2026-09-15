@@ -14,9 +14,14 @@ async function encodeAudio(file, destination, pad) {
   const temporary = `${destination}.ffmpeg.wav`;
   try {
     await new Promise((resolve, reject) => {
-      ffmpeg().input(file).noVideo().audioCodec('pcm_s16le')
+      const command = ffmpeg().input(file).noVideo().audioCodec('pcm_s16le')
         .audioChannels(pad.channels === 'Stereo' ? 2 : 1).audioFrequency(44100)
-        .format('wav').output(temporary).on('error', reject).on('end', resolve).run();
+        .format('wav').output(temporary).on('error', reject).on('end', resolve);
+      const timer = setTimeout(() => {
+        command.kill('SIGKILL');
+        reject(new Error('FFmpeg encoding timed out.'));
+      }, 60000);
+      command.on('error', () => clearTimeout(timer)).on('end', () => clearTimeout(timer)).run();
     });
     const { chunks } = AudioWAV.fromFile(fs.readFileSync(temporary));
     const format = chunks.find((chunk) => chunk.type === 'format');
