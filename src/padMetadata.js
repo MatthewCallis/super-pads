@@ -1,15 +1,16 @@
-const { AudioPadInfo } = require('@uttori/audio-padinfo');
+const loadDataTools = require('./dataTools');
 
-/** Reject incomplete cards and invalid field values before exposing them to the editor. */
-function decodePads(data) {
+/** Resolve all 120 validated records; incomplete cards, invalid fields and ESM load failures reject. */
+async function decodePads(data) {
   if (data.length !== 120 * 32) throw new Error('PAD_INFO.BIN must contain all 120 pad records (3840 bytes).');
-  const { pads } = AudioPadInfo.fromFile(data);
-  for (const pad of pads) validatePad(pad);
+  const { SP404PadInfo } = await loadDataTools();
+  const { pads } = SP404PadInfo.fromFile(data);
+  for (const pad of pads) validatePad(pad, SP404PadInfo);
   return pads;
 }
 
-/** Validate byte offsets and fields that the library otherwise coerces or only logs as invalid. */
-function validatePad(pad) {
+/** Enforce card-specific offset bounds and reject damaged flag bytes retained by the parser. */
+function validatePad(pad, SP404PadInfo) {
   for (const field of ['lofi', 'loop', 'gate', 'reverse']) {
     if (typeof pad[field] !== 'boolean') throw new Error(`${pad.label}: invalid ${field}.`);
   }
@@ -23,18 +24,20 @@ function validatePad(pad) {
       throw new Error(`${pad.label}: invalid ${prefix} sample offsets.`);
     }
   }
-  AudioPadInfo.encodePad(pad);
+  // The v5 encoder validates device field ranges; card payload bounds remain the app's responsibility.
+  SP404PadInfo.encodePad(pad);
 }
 
-/** Encode exactly one ordered record per supported pad, never silently reorder or omit a pad. */
-function encodePads(pads) {
+/** Resolve owned metadata bytes for 120 ordered pads; invalid identities or fields reject before any write. */
+async function encodePads(pads) {
   if (!Array.isArray(pads) || pads.length !== 120) throw new Error('A card must contain exactly 120 pads.');
+  const { SP404PadInfo } = await loadDataTools();
   return Buffer.concat(pads.map((pad, index) => {
-    const label = AudioPadInfo.getPadLabel(index);
+    const label = SP404PadInfo.getPadLabel(index);
     const filename = `${label[0]}${label.slice(1).padStart(7, '0')}.WAV`;
     if (pad.label !== label || pad.filename !== filename) throw new Error(`Invalid pad order or filename at ${label}.`);
-    validatePad(pad);
-    return AudioPadInfo.encodePad(pad);
+    validatePad(pad, SP404PadInfo);
+    return SP404PadInfo.encodePad(pad);
   }));
 }
 

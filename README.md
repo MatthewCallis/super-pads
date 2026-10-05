@@ -9,7 +9,7 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 ## Latest Version: v1.3.0 (2026-09-14)
 
 - Pad Editor now shows all ten pad banks together in a wider and resizable window.
-- Pattern Import / Export! You can now import and export your patterns to and from MIDI
+- Pattern Import / Export! You can now import and export your patterns to and from MIDI with MIDI preview and custom pad assignment.
 - Fixed several bugs and edge cases.
 
 ## How to Use
@@ -24,6 +24,16 @@ Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) 
 1. If you think something should be working but it not, please [file an issue](https://github.com/MatthewCallis/super-pads/issues) or [tweet at me](https://twitter.com/superfamicom/status/1343989480160522240).
 
 Card writes stage imports and transfers before changing the card and keep recovery backups until the save completes. Failed conversions retain your pending edits for a retry. If a save is interrupted, reopen the card in Super Pads to recover it before using it in the sampler. Leave the `.super-pads-transaction` recovery folder in place until recovery completes. Staging and backups require free space for the changed samples and their previous versions.
+
+### Patterns
+
+Open an SD card and select **Patterns**. The matrix shows all 120 pattern slots independently of the sample pads. Select a slot, then choose **Import MIDI / Pattern**, or drop a `.mid`, `.midi`, or native SX/A `.bin` file onto the slot. A timeline above the matrix shows the selected pattern's sample lanes, note durations, velocity, bar count, and hit count.
+
+MIDI import detects the notes actually used and opens an editable note assignment table. **Sample Group** defaults to the selected pattern slot's bank, with **Drum Rack** as the default layout. For a pattern in bank F, this maps C1 (MIDI 36) → F9, C#1 → F10, D1 → F11, D#1 → F12, E1 → F5, F1 → F6, F#1 → F7, and G1 → F8; a pattern in bank C uses the same pad positions in group C. You can change the group or edit individual assignments. Auto assignment preserves those positions and assigns other notes to unused pads, continuing into other groups when needed. **Ascending** maps the lowest used pitch to pad 1 instead. Each pitch must have a unique sample pad; empty pads are called out so you can import the matching samples in All Pads.
+
+Import and removal remain pending until **Write SD Card**, which saves patterns and sample changes together with recovery backups. Native pattern files are read from `ROLAND/SP-404SX/PTN`. The SX file order rotates pad 12 to the start of each bank: A12 is `PTN00000.BIN`, A1 is `PTN00001.BIN`, and F1 is `PTN00061.BIN`.
+
+**Export MIDI** lets you review or change the notes for every used sample pad, imported patterns default to their original MIDI notes. **Export .BIN** saves the native bytes. SX/A patterns do not store tempo: the optional **Export Tempo** field adds a MIDI tempo event, and an imported initial MIDI tempo is retained in editor metadata. The converter supports 4/4 MIDI patterns up to 64 bars, scales to the SX's 96 ticks per quarter note, and preserves velocity, duration, and trailing rests. Names, note maps, and export tempo are restored only while the card's pattern bytes still match the saved editor snapshot.
 
 ### Video Tutorials
 
@@ -96,9 +106,9 @@ npm run package-win
 npm run package-linux
 ```
 
-The bundled FFmpeg ([`ffmpeg-static-electron`](https://www.npmjs.com/package/ffmpeg-static-electron)) ships native binaries for both `arm64` and `x64`, and the correct one is selected automatically at runtime, so each build runs natively with no Rosetta. Electron downloads its development binary on the first `npm start` or `npm run test:smoke`; those first runs require network access.
+The bundled FFmpeg ([`ffmpeg-static-electron`](https://www.npmjs.com/package/ffmpeg-static-electron)) ships native binaries for both `arm64` and `x64`, and the correct one is selected automatically at runtime, so each build runs natively with no Rosetta.
 
-The audio libraries and FFmpeg binary package remain at their latest published versions. `fluent-ffmpeg` is updated to its final release, 2.1.3, but is deprecated upstream; replacing that wrapper is a separate migration.
+Electron downloads its development binary on the first `npm start` or `npm run test:smoke`, those first runs require network access.
 
 ### Build all GitHub release assets
 
@@ -126,7 +136,7 @@ Cross-platform packaging downloads additional build tools on the first run. See 
 
 ## Notes
 
-Super Pads makes use of two libraries I wrote to play with my own SP-404SX, [uttori-audio-padinfo](https://github.com/uttori/uttori-audio-padinfo) for parsing and writing the `PAD_INFO.BIN` file and [uttori-audio-wave](https://github.com/uttori/uttori-audio-wave) for adding the `RLND` header to the Wave files out of FFmpeg, and an Electron wrapper to make it easier to use.
+Super Pads uses [@uttori/data-tools](https://github.com/uttori/uttori-data-tools) `SP404PadInfo` for parsing and writing `PAD_INFO.BIN` and `SP404Pattern` for native SX pattern and MIDI conversion. The class supports the native SX pattern format: addresses 47–106 with a separate A–E/F–J selector, delays after each hit, big-endian note lengths, and bar count at footer byte 9. The Patterns tab supplies explicit note maps through `src/patternMetadata.js` and the `convertPattern` worker. The same package's `AudioWAV` parses FFmpeg output and encodes its format and Roland `RLND` header before samples are saved. An Electron wrapper provides the editor interface.
 
 _Note:_ I do not have an OG SP-404 or SP-404A but this could easily support those if someone is willing to help debug issues.
 

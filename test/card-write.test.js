@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
-const { AudioWAV } = require('@uttori/audio-wave');
+const loadDataTools = require('../src/dataTools');
 const { createCard } = require('./helpers');
 const writeCard = require('../src/writeCard');
 const { decodePads } = require('../src/padMetadata');
@@ -10,8 +10,8 @@ const { atomicWrite, writeNew } = require('../src/fileStorage');
 const { CardTransaction, recoverCard, SAMPLE_DIRECTORY } = require('../src/cardTransaction');
 
 /** Create a complete editor snapshot from the disposable card's metadata. */
-function snapshot(card) {
-  const pads = decodePads(fs.readFileSync(path.join(card.directory, 'PAD_INFO.BIN')));
+async function snapshot(card) {
+  const pads = await decodePads(fs.readFileSync(path.join(card.directory, 'PAD_INFO.BIN')));
   return { root: card.root, pads: Object.fromEntries(pads.map((pad) => [pad.label, pad])) };
 }
 
@@ -20,8 +20,8 @@ function importPad(state, label, file) {
   Object.assign(state.pads[label], { convert: true, externalFile: file, channels: 'Stereo' });
 }
 
-test('partial temporary writes preserve existing metadata', (t) => {
-  const card = createCard();
+test('partial temporary writes preserve existing metadata', async (t) => {
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
   const file = path.join(card.directory, 'PAD_INFO.BIN');
   const before = fs.readFileSync(file);
@@ -37,9 +37,9 @@ test('partial temporary writes preserve existing metadata', (t) => {
 });
 
 test('failed conversion leaves metadata, samples, deletion targets, and pending flags intact', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  const state = snapshot(card);
+  const state = await snapshot(card);
   const before = fs.readFileSync(path.join(card.directory, 'PAD_INFO.BIN'));
   fs.copyFileSync(card.file, path.join(card.directory, state.pads.A3.filename));
   importPad(state, 'A1', card.file);
@@ -57,16 +57,45 @@ test('failed conversion leaves metadata, samples, deletion targets, and pending 
   assert.equal(fs.existsSync(path.join(card.root, 'super-pads.json')), false);
 });
 
-test('mono conversion changes WAV channels and translates existing trim offsets', async (t) => {
-  const card = createCard();
+test('strict WAV parsing rejects damaged conversion output without replacing the card sample', async (t) => {
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  let state = snapshot(card);
+  const state = await snapshot(card);
+  const sample = path.join(card.directory, state.pads.A1.filename);
+  fs.copyFileSync(card.file, sample);
+  const previousSample = fs.readFileSync(sample);
+  const info = path.join(card.directory, 'PAD_INFO.BIN');
+  const previousMetadata = fs.readFileSync(info);
+  importPad(state, 'A1', card.file);
+  const read = fs.readFileSync;
+  t.mock.method(fs, 'readFileSync', (file, ...args) => {
+    const bytes = read(file, ...args);
+    if (typeof file === 'string' && file.endsWith('.ffmpeg.wav')) {
+      // Leave fmt/data readable but contradict RIFF's size, which permissive parsing can recover from.
+      const damaged = Buffer.from(bytes);
+      damaged.writeUInt32LE(bytes.length, 4);
+      return damaged;
+    }
+    return bytes;
+  });
+  await assert.rejects(writeCard({ root: card.root, state }), /Container declares/);
+  assert.deepEqual(fs.readFileSync(sample), previousSample);
+  assert.deepEqual(fs.readFileSync(info), previousMetadata);
+  assert.equal(state.pads.A1.convert, true);
+  assert.equal(fs.existsSync(path.join(card.root, '.super-pads-transaction')), false);
+});
+
+test('mono conversion changes WAV channels and translates existing trim offsets', async (t) => {
+  const { AudioWAV } = await loadDataTools();
+  const card = await createCard();
+  t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
+  let state = await snapshot(card);
   importPad(state, 'A1', card.file);
   await writeCard({ root: card.root, state });
-  state = snapshot(card);
+  state = await snapshot(card);
   Object.assign(state.pads.A1, { targetChannels: 'Mono', userSampleStart: 912, userSampleEnd: 4512 });
   await writeCard({ root: card.root, state });
-  const result = snapshot(card).pads.A1;
+  const result = (await snapshot(card)).pads.A1;
   const wave = fs.readFileSync(path.join(card.directory, result.filename));
   const format = AudioWAV.fromFile(wave).chunks.find((chunk) => chunk.type === 'format').value;
   assert.equal(format.channels, 1);
@@ -77,16 +106,16 @@ test('mono conversion changes WAV channels and translates existing trim offsets'
 });
 
 test('new imports reset both trim ranges to the replacement payload', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  const state = snapshot(card);
+  const state = await snapshot(card);
   Object.assign(state.pads.A1, {
     originalSampleStart: 80000, originalSampleEnd: 100000,
     userSampleStart: 90000, userSampleEnd: 95000,
   });
   importPad(state, 'A1', card.file);
   await writeCard({ root: card.root, state });
-  const result = snapshot(card).pads.A1;
+  const result = (await snapshot(card)).pads.A1;
   const size = fs.statSync(path.join(card.directory, result.filename)).size;
   assert.equal(result.originalSampleStart, 512);
   assert.equal(result.userSampleStart, 512);
@@ -95,9 +124,9 @@ test('new imports reset both trim ranges to the replacement payload', async (t) 
 });
 
 test('commit failure restores changed samples and metadata and preserves retry state', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  const state = snapshot(card);
+  const state = await snapshot(card);
   const sample = path.join(card.directory, state.pads.A1.filename);
   const deleted = path.join(card.directory, state.pads.A3.filename);
   fs.copyFileSync(card.file, sample);
@@ -122,13 +151,13 @@ test('commit failure restores changed samples and metadata and preserves retry s
 });
 
 test('deletion commits an empty pad without changing its identity or other samples', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  let state = snapshot(card);
+  let state = await snapshot(card);
   importPad(state, 'B3', card.file);
   importPad(state, 'A1', card.file);
   await writeCard({ root: card.root, state });
-  state = snapshot(card);
+  state = await snapshot(card);
   const before = fs.readFileSync(path.join(card.directory, state.pads.A1.filename));
   state.pads.B3.remove = true;
   const result = await writeCard({ root: card.root, state });
@@ -140,8 +169,8 @@ test('deletion commits an empty pad without changing its identity or other sampl
   assert.deepEqual(fs.readFileSync(path.join(card.directory, state.pads.A1.filename)), before);
 });
 
-test('reopening an interrupted commit restores backups and can retry interrupted recovery', (t) => {
-  const card = createCard();
+test('reopening an interrupted commit restores backups and can retry interrupted recovery', async (t) => {
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
   const file = path.join(card.directory, 'PAD_INFO.BIN');
   const before = fs.readFileSync(file);
@@ -164,8 +193,8 @@ test('reopening an interrupted commit restores backups and can retry interrupted
   assert.equal(fs.existsSync(path.join(card.root, 'super-pads.json')), false);
 });
 
-test('interrupted cleanup never rolls back a committed card', (t) => {
-  const card = createCard();
+test('interrupted cleanup never rolls back a committed card', async (t) => {
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
   const tx = new CardTransaction(card.root);
   writeNew(tx.stage('super-pads.json'), '{"saved":true}');

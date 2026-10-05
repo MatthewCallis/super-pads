@@ -138,16 +138,21 @@
         <div class="top">
           <div class="folder-selector">
             <div class="card-heading">
-              <h1>All pads</h1>
+              <h1>Super Pads</h1>
               <p class="card-path">Select your SD card to get started</p>
             </div>
             <button class="choose-folder" type="button">Pick Folder</button>
+          </div>
+          <div class="workspace-tabs" role="tablist" aria-label="Card views">
+            <button id="pads-tab" type="button" role="tab" aria-selected="true" aria-controls="pads-panel">Pads</button>
+            <button id="patterns-tab" type="button" role="tab" aria-selected="false" aria-controls="patterns-panel" tabindex="-1">Patterns</button>
           </div>
           <p class="matrix-help">Click on a pad to edit it. Drag samples to move them, dragging to occupied pads swap samples. Drop an audio file onto any pad to import.</p>
         </div>
         <div class="middle">
           <p class="errors" role="alert"></p>
-          <div class="matrix-empty">All ten banks will appear here when you open an SD card.</div>
+          <div id="pads-panel" role="tabpanel" aria-labelledby="pads-tab">
+          <div class="matrix-empty">All 10 banks will appear here when you open an SD card.</div>
           <div class="bank-matrix">
             <section class="bank-group" data-bank="A" aria-labelledby="bank-a-title">
               <div class="bank-heading">
@@ -220,6 +225,37 @@
               <div class="pad-list bank-j" role="group" aria-label="Bank J pads"></div>
             </section>
           </div>
+          </div>
+          <div id="patterns-panel" role="tabpanel" aria-labelledby="patterns-tab" hidden>
+            <section class="pattern-preview" aria-labelledby="pattern-title">
+              <div class="pattern-heading">
+                <div>
+                  <p class="eyebrow">Pattern Preview <span class="pattern-slot-label">F1</span></p>
+                  <h2 id="pattern-title">Select a pattern or import MIDI</h2>
+                  <p class="pattern-summary">Open an SD card to manage all 120 pattern slots.</p>
+                </div>
+                <div class="pattern-actions">
+                  <button class="import-pattern primary" type="button">Import MIDI / Pattern</button>
+                  <button class="export-midi" type="button" disabled>Export MIDI</button>
+                  <button class="export-pattern" type="button" disabled>Export .BIN</button>
+                  <button class="remove-pattern" type="button" disabled>Remove</button>
+                </div>
+              </div>
+              <div class="pattern-timeline-wrap">
+                <canvas class="pattern-timeline" height="180" role="img" aria-label="Pattern note timeline"></canvas>
+                <p class="pattern-timeline-empty">Your pattern's pad lanes and note hits will appear here.</p>
+              </div>
+              <div class="pattern-preview-footer">
+                <span class="pattern-used-pads">Note width shows duration. Brightness shows velocity.</span>
+                <label>Export Tempo <input class="pattern-bpm" type="number" min="1" max="999" step="0.1" placeholder="BPM" aria-label="Pattern export tempo in BPM" disabled></label>
+              </div>
+            </section>
+            <div class="pattern-matrix-heading">
+              <h2>Pattern Slots</h2>
+              <p>Select a destination, then import. Changes are saved with Write SD Card.</p>
+            </div>
+            <div class="pattern-matrix bank-matrix" aria-label="Pattern bank matrix"></div>
+          </div>
         </div>
         <div class="bottom">
           <div class="matrix-legend">
@@ -232,6 +268,56 @@
         </div>
       </div>
     </div>
+    <dialog class="pattern-mapping" aria-labelledby="mapping-title">
+      <form class="mapping-form">
+        <div class="mapping-heading">
+          <div>
+            <p class="eyebrow">MIDI note assignment</p>
+            <h2 id="mapping-title">Import MIDI</h2>
+          </div>
+          <button class="close-mapping" type="button" aria-label="Close note assignment">×</button>
+        </div>
+        <p class="mapping-file"></p>
+        <div class="mapping-options">
+          <label class="import-option">
+            Pattern Slot
+            <select class="mapping-destination" aria-label="Destination pattern slot"></select>
+          </label>
+          <label class="import-option">
+            Sample Group
+            <select class="mapping-bank" aria-label="Sample bank for automatic mapping"></select>
+          </label>
+          <label class="import-option">
+            Auto Assignment
+            <select class="mapping-layout">
+              <option value="drum">Drum Rack - C1 starts at Pad 9</option>
+              <option value="ascending">Ascending - lowest note starts at Pad 1</option>
+            </select>
+          </label>
+          <button class="auto-map import-option" type="button">Auto Assign</button>
+        </div>
+        <p class="mapping-help">C1 = MIDI 36. Every detected note needs a unique sample pad. Import keeps the MIDI timing and velocity.</p>
+        <div class="mapping-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="mapping-source-heading">MIDI Note</th>
+                <th>Hits</th>
+                <th class="mapping-target-heading">Sample Pad</th>
+                <th class="mapping-detail-heading">Sample</th>
+              </tr>
+            </thead>
+            <tbody class="mapping-rows"></tbody>
+          </table>
+        </div>
+        <p class="mapping-validation" role="status" aria-live="polite"></p>
+        <div class="mapping-footer">
+          <p class="mapping-save-help">Import stages this pattern. Write SD Card saves it to the selected slot.</p>
+          <button class="cancel-mapping" type="button">Cancel</button>
+          <button class="confirm-mapping primary" type="submit">Import Pattern</button>
+        </div>
+      </form>
+    </dialog>
     <script src="./src/perlin.js"></script>
     <script src="./src/renderer.js"></script>
   </body>

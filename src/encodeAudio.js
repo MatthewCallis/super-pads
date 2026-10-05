@@ -1,24 +1,62 @@
 const fs = require('node:fs');
-const ffmpeg = require('fluent-ffmpeg');
-const { AudioWAV } = require('@uttori/audio-wave');
+const { spawn } = require('node:child_process');
+const loadDataTools = require('./dataTools');
 const { writeNew } = require('./fileStorage');
 const ffmpegPath = require('ffmpeg-static-electron').path;
 
-ffmpeg.setFfmpegPath(ffmpegPath.replace('app.asar', 'app.asar.unpacked'));
+// Packaged executables must run from the unpacked directory outside Electron's ASAR archive.
+const executable = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+
+/**
+ * Write a seekable 44.1 kHz, 16-bit PCM WAV with one or two channels.
+ * Settle only after FFmpeg and its stdio close; preserve spawn errors and include stderr on exit failures.
+ */
+function convertWithFfmpeg(file, destination, channels) {
+  return new Promise((resolve, reject) => {
+    // Pass paths as individual arguments so spaces and shell metacharacters remain literal filenames.
+    const child = spawn(executable, [
+      '-nostdin', '-hide_banner', '-loglevel', 'error', '-y',
+      '-i', file, '-vn', '-c:a', 'pcm_s16le',
+      '-ac', String(channels), '-ar', '44100', '-f', 'wav', destination,
+    ], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    let processError;
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => {
+      // Drain the pipe to avoid blocking FFmpeg, retaining only the last 65,536 characters of diagnostics.
+      stderr = (stderr + chunk).slice(-64 * 1024);
+    });
+    child.once('error', (error) => { processError = error; });
+    // Closing stdio ensures diagnostics are complete and cleanup cannot race a remaining output write.
+    child.once('close', (code, signal) => {
+      if (processError) {
+        reject(processError);
+      } else if (code === 0 && !signal) {
+        resolve();
+      } else {
+        let reason = `ffmpeg exited with code ${code}`;
+        if (signal) reason = `ffmpeg was killed with signal ${signal}`;
+        const diagnostics = stderr.trim();
+        if (diagnostics) reason += `: ${diagnostics}`;
+        reject(new Error(reason));
+      }
+    });
+  });
+}
 
 /**
  * Convert to a new staged 44.1 kHz, 16-bit PCM Roland WAV. Reject on FFmpeg or post-processing failure.
  * The caller owns destination cleanup; source and final card files are never opened for writing here.
+ * Returned size includes the 512-byte Roland header; duration measures the PCM audio in seconds.
  */
 async function encodeAudio(file, destination, pad) {
   const temporary = `${destination}.ffmpeg.wav`;
   try {
-    await new Promise((resolve, reject) => {
-      ffmpeg().input(file).noVideo().audioCodec('pcm_s16le')
-        .audioChannels(pad.channels === 'Stereo' ? 2 : 1).audioFrequency(44100)
-        .format('wav').output(temporary).on('error', reject).on('end', resolve).run();
-    });
-    const { chunks } = AudioWAV.fromFile(fs.readFileSync(temporary));
+    // Resolve the ESM tools before launching FFmpeg so import failures leave no conversion running.
+    const { AudioWAV } = await loadDataTools();
+    await convertWithFfmpeg(file, temporary, pad.channels === 'Stereo' ? 2 : 1);
+    // A staged sample must reject incomplete WAV data rather than save a partial parser recovery.
+    const { chunks } = AudioWAV.fromFile(fs.readFileSync(temporary), { strict: true });
     const format = chunks.find((chunk) => chunk.type === 'format');
     const data = chunks.find((chunk) => chunk.type === 'data');
     if (!format || !data) throw new Error('Converted WAV is missing its format or audio data.');

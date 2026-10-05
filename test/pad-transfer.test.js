@@ -8,8 +8,8 @@ const { canDragPad, transferPads } = require('../src/padTransfer');
 const writeCard = require('../src/writeCard');
 
 /** Load a complete fixture snapshot with the same file-presence information as the renderer's worker. */
-function snapshot(card) {
-  const pads = decodePads(fs.readFileSync(path.join(card.directory, 'PAD_INFO.BIN')));
+async function snapshot(card) {
+  const pads = await decodePads(fs.readFileSync(path.join(card.directory, 'PAD_INFO.BIN')));
   for (const pad of pads) pad.samplePresent = fs.existsSync(path.join(card.directory, pad.filename));
   return { pads: Object.fromEntries(pads.map((pad) => [pad.label, pad])) };
 }
@@ -27,17 +27,17 @@ function expectedWave(original, sampleIndex) {
 }
 
 test('cross-bank swaps preserve both WAVs and settings, changing only their Roland identities', async (t) => {
-  const card = createCard();
-  const other = createCard({ seconds: 0.2 });
+  const card = await createCard();
+  const other = await createCard({ seconds: 0.2 });
   t.after(() => {
     fs.rmSync(card.root, { recursive: true, force: true });
     fs.rmSync(other.root, { recursive: true, force: true });
   });
-  let state = snapshot(card);
+  let state = await snapshot(card);
   importPad(state, 'A1', card.file);
   importPad(state, 'J12', other.file);
   await writeCard({ root: card.root, state });
-  state = snapshot(card);
+  state = await snapshot(card);
   Object.assign(state.pads.A1, { volume: 37, userSampleStart: 712, reverse: true, targetChannels: undefined });
   Object.assign(state.pads.J12, { volume: 58, loop: true });
   const a = fs.readFileSync(path.join(card.directory, state.pads.A1.filename));
@@ -59,12 +59,12 @@ test('cross-bank swaps preserve both WAVs and settings, changing only their Rola
 });
 
 test('repeated moves retain the original disk source and commit empty intermediate slots', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  let state = snapshot(card);
+  let state = await snapshot(card);
   importPad(state, 'A10', card.file);
   await writeCard({ root: card.root, state });
-  state = snapshot(card);
+  state = await snapshot(card);
   const before = fs.readFileSync(path.join(card.directory, state.pads.A10.filename));
   transferPads(state.pads, 'A10', 'C4');
   transferPads(state.pads, 'C4', 'J12');
@@ -75,14 +75,14 @@ test('repeated moves retain the original disk source and commit empty intermedia
   assert.equal(fs.existsSync(path.join(card.directory, 'A0000010.WAV')), false);
   assert.equal(fs.existsSync(path.join(card.directory, 'C0000004.WAV')), false);
   assert.deepEqual(fs.readFileSync(path.join(card.directory, 'J0000012.WAV')), expectedWave(before, 119));
-  assert.equal(snapshot(card).pads.A10.avaliable, true);
-  assert.equal(snapshot(card).pads.C4.avaliable, true);
+  assert.equal((await snapshot(card)).pads.A10.avaliable, true);
+  assert.equal((await snapshot(card)).pads.C4.avaliable, true);
 });
 
 test('a moved pending import keeps its external source and converts on the final pad', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  const state = snapshot(card);
+  const state = await snapshot(card);
   importPad(state, 'B3', card.file);
   state.pads.B3.volume = 49;
   transferPads(state.pads, 'B3', 'H9');
@@ -91,35 +91,35 @@ test('a moved pending import keeps its external source and converts on the final
   assert.equal(state.pads.H9.sourceFilename, undefined);
   await writeCard({ root: card.root, state });
   assert.equal(fs.existsSync(path.join(card.directory, 'B0000003.WAV')), false);
-  const result = snapshot(card).pads.H9;
+  const result = (await snapshot(card)).pads.H9;
   assert.equal(result.volume, 49);
   assert.equal(result.avaliable, false);
   assert.equal(result.originalSampleStart, 512);
 });
 
 test('pending mono conversion follows the moved sample and translates its trims', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  let state = snapshot(card);
+  let state = await snapshot(card);
   importPad(state, 'A1', card.file);
   await writeCard({ root: card.root, state });
-  state = snapshot(card);
+  state = await snapshot(card);
   Object.assign(state.pads.A1, { targetChannels: 'Mono', userSampleStart: 912, userSampleEnd: 4512 });
   transferPads(state.pads, 'A1', 'D2');
   await writeCard({ root: card.root, state });
-  const moved = snapshot(card).pads.D2;
+  const moved = (await snapshot(card)).pads.D2;
   assert.equal(moved.channels, 'Mono');
   assert.equal(moved.userSampleStart, 712);
   assert.equal(moved.userSampleEnd, 2512);
 });
 
 test('failed transfer commit restores original files and leaves the move available for retry', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  let state = snapshot(card);
+  let state = await snapshot(card);
   importPad(state, 'A1', card.file);
   await writeCard({ root: card.root, state });
-  state = snapshot(card);
+  state = await snapshot(card);
   const original = fs.readFileSync(path.join(card.directory, state.pads.A1.filename));
   const metadata = fs.readFileSync(path.join(card.directory, 'PAD_INFO.BIN'));
   transferPads(state.pads, 'A1', 'J12');
@@ -143,9 +143,9 @@ test('failed transfer commit restores original files and leaves the move availab
 });
 
 test('same-pad, empty, removed, unknown, and untrusted source paths never become transfers', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
-  const state = snapshot(card);
+  const state = await snapshot(card);
   assert.equal(transferPads(state.pads, 'A1', 'A1'), false);
   assert.equal(transferPads(state.pads, 'A1', 'B1'), false);
   assert.equal(transferPads(state.pads, 'unknown', 'B1'), false);

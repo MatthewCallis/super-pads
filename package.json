@@ -51,10 +51,8 @@
     "sass": "^1.105.1"
   },
   "dependencies": {
-    "@uttori/audio-padinfo": "^1.2.2",
-    "@uttori/audio-wave": "^2.1.0",
+    "@uttori/data-tools": "^5.1.1",
     "ffmpeg-static-electron": "^2.0.3",
-    "fluent-ffmpeg": "^2.1.3",
     "waveform-data": "^4.5.2"
   },
   "build": {
@@ -69,8 +67,6 @@
       "style.css",
       "src/**/*",
       "fonts/**/*",
-      "!node_modules/fluent-ffmpeg/doc${/*}",
-      "!node_modules/fluent-ffmpeg/tools${/*}",
       "!node_modules/ffmpeg-static-electron/bin/!(${os})${/*}",
       "!node_modules/ffmpeg-static-electron/bin/${os}/!(${arch})${/*}",
       "!node_modules/**/LICENSE",

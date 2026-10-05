@@ -8,7 +8,8 @@ const SAMPLE_DIRECTORY = 'ROLAND/SP-404SX/SMPL';
 /** Only application-owned card files may appear in a recovery journal. Paths use portable slashes. */
 function validTarget(target) {
   return target === 'super-pads.json' || target === `${SAMPLE_DIRECTORY}/PAD_INFO.BIN`
-    || /^ROLAND\/SP-404SX\/SMPL\/[A-J]00000(?:0[1-9]|1[0-2])\.WAV$/.test(target);
+    || /^ROLAND\/SP-404SX\/SMPL\/[A-J]00000(?:0[1-9]|1[0-2])\.WAV$/.test(target)
+    || /^ROLAND\/SP-404SX\/PTN\/PTN00(?:0\d\d|1[01]\d)\.BIN$/.test(target);
 }
 
 /** Copy and flush a backup without consuming it; recovery must be repeatable after another failure. */

@@ -1,12 +1,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { AudioPadInfo } = require('@uttori/audio-padinfo');
+const loadDataTools = require('./dataTools');
 const readWaveMetadata = require('./readWaveMetadata');
 const encodeAudio = require('./encodeAudio');
 const relocateSample = require('./relocateSample');
 const { writeNew } = require('./fileStorage');
 const { encodePads, decodePads } = require('./padMetadata');
 const { CardTransaction, recoverCard, SAMPLE_DIRECTORY } = require('./cardTransaction');
+const { inspectPattern } = require('./patternMetadata');
+const { patternFilename } = require('./patternSlots');
+const { PATTERN_DIRECTORY } = require('./readPatterns');
 
 /** Run at most two sample-staging jobs; await every started job before allowing rollback. */
 async function stageQueuedSamples(jobs) {
@@ -45,11 +48,12 @@ async function writeCard({ root, state }) {
     error.recoveryRequired = true;
     throw error;
   }
-  decodePads(fs.readFileSync(path.join(root, SAMPLE_DIRECTORY, 'PAD_INFO.BIN')));
+  const { SP404PadInfo } = await loadDataTools();
+  await decodePads(fs.readFileSync(path.join(root, SAMPLE_DIRECTORY, 'PAD_INFO.BIN')));
   const snapshot = structuredClone(state);
   const pads = Object.values(snapshot.pads);
   // Validate identities before using any client-provided filenames as destinations.
-  encodePads(pads);
+  await encodePads(pads);
   for (const pad of pads) {
     if (pad.sourceFilename !== undefined && (typeof pad.sourceFilename !== 'string'
       || !/^[A-J]00000(?:0[1-9]|1[0-2])\.WAV$/.test(pad.sourceFilename))) {
@@ -65,7 +69,7 @@ async function writeCard({ root, state }) {
       // Moving into an empty slot leaves a vacancy whose old disk file must be removed at commit.
       if (pad.remove || (pad.relocated && !pad.samplePresent && !pad.convert)) {
         transaction.stage(target, true);
-        const defaults = AudioPadInfo.fromFile(AudioPadInfo.encodePad()).pads[0];
+        const defaults = SP404PadInfo.fromFile(SP404PadInfo.encodePad()).pads[0];
         Object.assign(pad, defaults, { label: pad.label, filename: pad.filename, size: 0, duration: 0, samplePresent: false });
         delete pad.externalFile;
         delete pad.externalFileSize;
@@ -123,10 +127,31 @@ async function writeCard({ root, state }) {
       delete pad.sourceFilename;
       delete pad.relocated;
     }
-    writeNew(transaction.stage(`${SAMPLE_DIRECTORY}/PAD_INFO.BIN`), encodePads(pads));
+    // Finish asynchronous validation before allocating the staged metadata destination.
+    const metadata = await encodePads(pads);
+    for (const [label, slot] of Object.entries(snapshot.patterns || {})) {
+      if (slot.label !== label || slot.filename !== patternFilename(label)) throw new Error('Invalid pattern slot identity.');
+      if (!slot.dirty && !slot.remove) continue;
+      // Patterns share the sample transaction, so a failed card save preserves both kinds of pending edits.
+      fs.mkdirSync(path.join(root, PATTERN_DIRECTORY), { recursive: true });
+      const target = `${PATTERN_DIRECTORY}/${slot.filename}`;
+      if (slot.remove) {
+        transaction.stage(target, true);
+        snapshot.patterns[label] = { label, filename: slot.filename };
+      } else {
+        if (!Array.isArray(slot.bytes) || slot.bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+          throw new Error(`${label}: invalid pattern bytes.`);
+        }
+        const bytes = Buffer.from(slot.bytes);
+        slot.summary = await inspectPattern(bytes);
+        writeNew(transaction.stage(target), bytes);
+        delete slot.dirty;
+      }
+    }
+    writeNew(transaction.stage(`${SAMPLE_DIRECTORY}/PAD_INFO.BIN`), metadata);
     writeNew(transaction.stage('super-pads.json'), JSON.stringify(snapshot, null, 2));
     const warning = transaction.commit();
-    return { pads, warning };
+    return { pads, patterns: snapshot.patterns, warning };
   } catch (error) {
     try { transaction.rollback(); } catch (recoveryError) {
       const pending = new Error(`${error.message} Recovery is pending; reopen this card to retry recovery. ${recoveryError.message}`);

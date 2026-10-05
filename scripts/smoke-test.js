@@ -3,28 +3,37 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
 const { app, BrowserWindow, dialog, shell } = require('electron');
-const { AudioWAV } = require('@uttori/audio-wave');
-const { AudioPadInfo } = require('@uttori/audio-padinfo');
+const loadDataTools = require('../src/dataTools');
 const { createCard } = require('../test/helpers');
 
 // An optional app.asar path runs the same checks against a packaged application's resources.
 let appRoot = path.join(__dirname, '..');
 if (process.argv[2]) appRoot = path.resolve(process.argv[2]);
-const card = createCard({ seconds: 4, prefix: 'super-pads-#card-' });
-const replacement = createCard();
+let card;
+let replacement;
+let SP404PadInfo;
+let AudioWAV;
 const externalURLs = [];
 const rendererErrors = [];
 let finished = false;
+let patternImportFile = path.join(__dirname, '..', 'pattern-test', 'future-bap.mid');
+/** Gate the native picker reply so loading/cancellation can be checked while the user is still choosing. */
+let holdPatternPicker = false;
+let releasePatternPicker;
 
-// Isolate the single-instance lock and profile, and keep dialogs/browser launches inside the fixture.
-app.setPath('userData', path.join(card.root, 'profile'));
-for (const filename of ['A0000001.WAV', 'A0000002.WAV', 'A0000010.WAV']) {
-  fs.copyFileSync(card.file, path.join(card.directory, filename));
-}
+// Keep dialogs/browser launches inside the fixtures created before the app starts.
 dialog.showOpenDialog = async (_window, options) => {
-  const selected = options.properties.includes('openDirectory') ? card.root : card.file;
+  let selected = card.file;
+  if (options.properties.includes('openDirectory')) selected = card.root;
+  else if (options.title === 'Import MIDI or SX Pattern') {
+    if (holdPatternPicker) return new Promise((resolve) => { releasePatternPicker = resolve; });
+    selected = patternImportFile;
+  }
   return { canceled: false, filePaths: [selected] };
 };
+dialog.showSaveDialog = async (_window, options) => ({
+  canceled: false, filePath: path.join(card.root, options.title === 'Export MIDI' ? 'pattern-export.mid' : 'pattern-export.bin'),
+});
 shell.openExternal = async (url) => { externalURLs.push(url); };
 
 /** End the process with a CI-friendly status and remove only this run's temporary card. */
@@ -35,8 +44,8 @@ function finish(error) {
     console.error(error);
     if (rendererErrors.length > 0) console.error('Renderer errors:', rendererErrors);
   }
-  fs.rmSync(card.root, { recursive: true, force: true });
-  fs.rmSync(replacement.root, { recursive: true, force: true });
+  if (card) fs.rmSync(card.root, { recursive: true, force: true });
+  if (replacement) fs.rmSync(replacement.root, { recursive: true, force: true });
   app.exit(error ? 1 : 0);
 }
 
@@ -50,7 +59,7 @@ async function waitFor(check, description) {
   throw new Error(`Timed out: ${description}`);
 }
 
-/** Exercise the actual renderer, IPC, browser workers, file-backed drop, and waveform decoder. */
+/** Exercise the actual renderer, IPC, Node conversion threads, browser previews, and file-backed drop. */
 async function checkWindow(window) {
   const contents = window.webContents;
   const evaluate = async (source) => {
@@ -65,6 +74,7 @@ async function checkWindow(window) {
   `);
   assert.equal(await evaluate('typeof require'), 'function');
   assert.equal(await evaluate('document.title'), 'Super Pads');
+  await checkPatternConversion(evaluate);
 
   await evaluate('document.querySelector("a").click()');
   await waitFor(() => externalURLs.length === 1, 'external link opens in the browser');
@@ -76,7 +86,11 @@ async function checkWindow(window) {
   assert.equal(externalURLs.length, 1);
 
   await evaluate('document.querySelector("button.choose-folder").click()');
-  await waitFor(() => evaluate('document.querySelectorAll(".pad-list .pad").length === 120'), 'SD card parsing');
+  await waitFor(async () => {
+    const error = await evaluate('document.querySelector("p.errors").textContent');
+    if (error) throw new Error(`SD card parsing failed: ${error}`);
+    return evaluate('document.querySelectorAll(".pad-list .pad").length === 120');
+  }, 'SD card parsing');
   await waitFor(() => evaluate('!document.querySelector("button.play").disabled'), 'audio preview decoding');
   await waitFor(() => evaluate('Array.from(document.querySelector("#waveform").getContext("2d").getImageData(0, 0, 240, 78).data).some(value => value !== 0)'), 'waveform rendering');
   assert.equal(await evaluate('document.querySelectorAll(".right select").length'), 0);
@@ -109,12 +123,7 @@ async function checkWindow(window) {
   await evaluate('document.querySelector("p.errors").click()');
 
   const pad = { label: 'B3', filename: 'B0000003.WAV', channels: 'Stereo' };
-  const result = await evaluate(`new Promise((resolve, reject) => {
-    const worker = new Worker('./src/workers/encodeFile.js');
-    worker.onmessage = ({ data }) => { worker.terminate(); resolve(data); };
-    worker.onerror = (event) => { worker.terminate(); reject(new Error(event.message)); };
-    worker.postMessage(${JSON.stringify({ ...card, pad })});
-  })`);
+  const result = await evaluate(`runWorker('encodeFile', ${JSON.stringify({ ...card, pad })})`);
   assert.equal(result.success, true);
   const { chunks } = AudioWAV.fromFile(fs.readFileSync(path.join(card.directory, pad.filename)));
   assert.equal(chunks.find((chunk) => chunk.type === 'format').value.sampleRate, 44100);
@@ -133,11 +142,174 @@ async function checkWindow(window) {
   })()`), true);
   await evaluate(`document.querySelector('.pad[data-label="J12"]').scrollIntoView({ block: 'nearest' })`);
   assert.equal(await evaluate(`document.querySelector('.pad[data-label="J12"]').getBoundingClientRect().bottom <= innerHeight`), true);
-  window.setSize(1480, 680);
+  window.setSize(1480, 760);
+  await checkPatterns(contents, evaluate);
   await checkRegressions(contents, evaluate);
   assert.deepEqual(await evaluate('smokeErrors'), []);
   assert.deepEqual(rendererErrors, []);
-  console.log(`Electron ${process.versions.electron}: startup, links, all 120 visible pads, cross-bank moves/swaps, direct file drops, audio preview, waveform, full card writes, recovery-related error handling, previews, worker cleanup, and conversion passed.`);
+  console.log(`Electron ${process.versions.electron}: startup, all 120 pads, transfers, audio preview, card recovery, Patterns tabs/matrix/timeline, future-bap assignment, MIDI/native import/export, save/reopen, and conversion passed.`);
+}
+
+/** Exercise pattern controls and native dialogs against the user's MIDI fixture, without touching a real card. */
+async function checkPatterns(contents, evaluate) {
+  const window = BrowserWindow.fromWebContents(contents);
+  await evaluate(`document.querySelector('#patterns-tab').click()`);
+  assert.equal(await evaluate(`document.querySelector('#pads-panel').hidden`), true);
+  assert.equal(await evaluate(`document.querySelector('#patterns-tab').getAttribute('aria-selected')`), 'true');
+  assert.equal(await evaluate(`document.querySelectorAll('.pattern-pad').length`), 120);
+  await evaluate(`document.querySelector('.pattern-pad[data-slot="F1"]').click()`);
+  holdPatternPicker = true;
+  await evaluate(`document.querySelector('.import-pattern').click()`);
+  await waitFor(() => Boolean(releasePatternPicker), 'native pattern picker is waiting');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.loading')).display`), 'none');
+  releasePatternPicker({ canceled: true, filePaths: [] });
+  releasePatternPicker = undefined;
+  await waitFor(() => evaluate('!busy'), 'canceled pattern picker finishes');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.loading')).display`), 'none');
+  assert.equal(await evaluate(`state.patterns.F1.bytes`), undefined);
+  assert.equal(await evaluate(`document.querySelector('.pattern-mapping').open`), false);
+
+  // Hold the selected file read so the progress indicator can be observed independently of disk speed.
+  await evaluate(`
+    window.smokePatternReadFile = require('node:fs/promises').readFile;
+    window.smokeReleasePatternRead = null;
+    require('node:fs/promises').readFile = async (...args) => {
+      await new Promise(resolve => { smokeReleasePatternRead = resolve; });
+      return smokePatternReadFile(...args);
+    };
+    undefined;
+  `);
+  await evaluate(`document.querySelector('.import-pattern').click()`);
+  await waitFor(() => Boolean(releasePatternPicker), 'native picker waits before selection');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.loading')).display`), 'none');
+  holdPatternPicker = false;
+  releasePatternPicker({ canceled: false, filePaths: [patternImportFile] });
+  releasePatternPicker = undefined;
+  await waitFor(() => evaluate('smokeReleasePatternRead !== null'), 'selected pattern file read begins');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.loading')).display`), 'block');
+  await evaluate(`
+    require('node:fs/promises').readFile = smokePatternReadFile;
+    smokeReleasePatternRead();
+  `);
+  await waitFor(() => evaluate(`document.querySelector('.pattern-mapping').open`), 'MIDI assignment dialog');
+  window.setSize(1100, 600);
+  await waitFor(() => evaluate('innerWidth === 1100'), 'minimum-window pattern layout');
+  assert.equal(await evaluate(`document.querySelector('.confirm-mapping').getBoundingClientRect().bottom <= innerHeight`), true);
+  assert.equal(await evaluate(`document.body.scrollWidth === innerWidth`), true);
+  window.setSize(1480, 760);
+  await waitFor(() => evaluate('innerWidth === 1480'), 'restored pattern layout');
+  assert.equal(await evaluate(`document.querySelectorAll('.mapping-rows tr').length`), 8);
+  assert.deepEqual(await evaluate(`patternPanel.pending.map`), {
+    36: 'F9', 37: 'F10', 38: 'F11', 39: 'F12', 40: 'F5', 41: 'F6', 42: 'F7', 43: 'F8',
+  });
+  await evaluate(`document.querySelector('.cancel-mapping').click()`);
+  await waitFor(() => evaluate(`!patternPanel.pending`), 'assignment cancellation');
+  assert.equal(await evaluate(`state.patterns.F1.bytes`), undefined);
+
+  // Import defaults belong to the selected pattern bank, even after a different bank's dialog was opened.
+  await evaluate(`document.querySelector('.pattern-pad[data-slot="C3"]').click(); document.querySelector('.import-pattern').click()`);
+  await waitFor(() => evaluate(`document.querySelector('.pattern-mapping').open`), 'bank C MIDI assignment');
+  assert.equal(await evaluate(`document.querySelector('.mapping-bank').value`), 'C');
+  assert.deepEqual(await evaluate(`patternPanel.pending.map`), {
+    36: 'C9', 37: 'C10', 38: 'C11', 39: 'C12', 40: 'C5', 41: 'C6', 42: 'C7', 43: 'C8',
+  });
+  await evaluate(`
+    const group = document.querySelector('.mapping-bank');
+    group.value = 'J'; group.dispatchEvent(new Event('change'));
+    const layout = document.querySelector('.mapping-layout');
+    layout.value = 'ascending'; layout.dispatchEvent(new Event('change'));
+  `);
+  assert.equal(await evaluate(`patternPanel.pending.map[36]`), 'J1');
+  await evaluate(`document.querySelector('.cancel-mapping').click()`);
+  await waitFor(() => evaluate(`!patternPanel.pending`), 'bank C assignment cancellation');
+  await evaluate(`document.querySelector('.pattern-pad[data-slot="F1"]').click()`);
+  await evaluate(`document.querySelector('.import-pattern').click()`);
+  await waitFor(() => evaluate(`document.querySelector('.pattern-mapping').open`), 'second MIDI assignment');
+  assert.equal(await evaluate(`document.querySelector('.mapping-bank').value`), 'F');
+  assert.equal(await evaluate(`document.querySelector('.mapping-layout').value`), 'drum');
+  await evaluate(`
+    const assignment = document.querySelector('.mapping-rows select[data-source="36"]');
+    assignment.value = 'F10'; assignment.dispatchEvent(new Event('change'));
+  `);
+  assert.equal(await evaluate(`document.querySelector('.confirm-mapping').disabled`), true);
+  assert.match(await evaluate(`document.querySelector('.mapping-validation').textContent`), /more than once/);
+  await evaluate(`document.querySelector('.auto-map').click()`);
+  assert.equal(await evaluate(`document.querySelector('.confirm-mapping').disabled`), false);
+  if (process.env.SUPER_PADS_MAPPING_SCREENSHOT) {
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    fs.writeFileSync(process.env.SUPER_PADS_MAPPING_SCREENSHOT, (await contents.capturePage()).toPNG());
+  }
+  await evaluate(`document.querySelector('.confirm-mapping').click()`);
+  await waitFor(() => evaluate(`state.patterns.F1.summary?.notes.length === 131`), 'future-bap import');
+  assert.equal(await evaluate(`state.patterns.F1.summary.bars`), 4);
+  assert.equal(await evaluate(`document.querySelector('.pattern-matrix').clientHeight >= 80`), true);
+  // Matrix scrolling must keep the timeline visible, even while selecting a lower-bank destination.
+  await evaluate(`document.querySelector('.pattern-pad[data-slot="F1"]').scrollIntoView({ block: 'nearest' })`);
+  assert.equal(await evaluate(`document.querySelector('.pattern-preview').getBoundingClientRect().top > document.querySelector('.workspace-tabs').getBoundingClientRect().bottom`), true);
+  assert.equal(await evaluate(`document.querySelector('.pattern-pad[data-slot="F1"]').classList.contains('add-pad')`), true);
+  assert.equal(fs.existsSync(path.join(card.root, 'ROLAND', 'SP-404SX', 'PTN', 'PTN00061.BIN')), false);
+  assert.equal(await evaluate(`Array.from(document.querySelector('.pattern-timeline').getContext('2d').getImageData(65 * devicePixelRatio, 28 * devicePixelRatio, 100 * devicePixelRatio, 20 * devicePixelRatio).data).some((value, index) => index % 4 === 0 && value > 100)`), true);
+  if (process.env.SUPER_PADS_PATTERN_SCREENSHOT) {
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    fs.writeFileSync(process.env.SUPER_PADS_PATTERN_SCREENSHOT, (await contents.capturePage()).toPNG());
+  }
+  await evaluate(`document.querySelector('.export-midi').click()`);
+  assert.equal(await evaluate(`document.querySelector('.mapping-rows input[data-source="F9"]').value`), '36');
+  await evaluate(`document.querySelector('.confirm-mapping').click()`);
+  await waitFor(() => fs.existsSync(path.join(card.root, 'pattern-export.mid')), 'MIDI export');
+  const { inspectMidi } = require(path.join(appRoot, 'src', 'patternMetadata'));
+  const exported = await inspectMidi(fs.readFileSync(path.join(card.root, 'pattern-export.mid')));
+  assert.deepEqual(exported.pitches, [36, 37, 38, 39, 40, 41, 42, 43]);
+  assert.equal(exported.notes.length, 131);
+  await waitFor(() => evaluate('!busy'), 'MIDI export finishes');
+  await evaluate(`document.querySelector('.export-pattern').click()`);
+  await waitFor(() => fs.existsSync(path.join(card.root, 'pattern-export.bin')), 'native pattern export');
+  assert.deepEqual(Array.from(fs.readFileSync(path.join(card.root, 'pattern-export.bin'))), await evaluate('state.patterns.F1.bytes'));
+  await waitFor(() => evaluate('!busy'), 'native export finishes');
+  patternImportFile = path.join(card.root, 'pattern-export.bin');
+  await evaluate(`document.querySelector('.pattern-pad[data-slot="F2"]').click(); document.querySelector('.import-pattern').click()`);
+  await waitFor(() => evaluate(`state.patterns.F2.summary?.notes.length === 131`), 'native pattern import');
+  await evaluate(`document.querySelector('.remove-pattern').click()`);
+  assert.equal(await evaluate(`state.patterns.F2.remove`), true);
+  await evaluate(`document.querySelector('button.write-card').click()`);
+  await waitFor(() => evaluate('!busy'), 'patterns save together with queued samples');
+  assert.deepEqual(Array.from(fs.readFileSync(path.join(card.root, 'ROLAND', 'SP-404SX', 'PTN', 'PTN00061.BIN'))), await evaluate('state.patterns.F1.bytes'));
+  assert.equal(await evaluate(`state.patterns.F1.dirty`), undefined);
+  assert.equal(await evaluate(`state.patterns.F2.bytes`), undefined);
+  await evaluate('parsePads()');
+  assert.equal(await evaluate(`state.patterns.F1.name`), 'future-bap');
+  assert.equal(await evaluate(`state.patterns.F1.noteMap[36]`), 'F9');
+  await evaluate(`document.querySelector('#patterns-tab').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))`);
+  assert.equal(await evaluate(`document.querySelector('#pads-tab').getAttribute('aria-selected')`), 'true');
+}
+
+/** Exercise the ESM pattern worker through real renderer IPC, including transferred output and error replies. */
+async function checkPatternConversion(evaluate) {
+  const result = await evaluate(`(async () => {
+    const footer = new Uint8Array(16);
+    footer[1] = 140;
+    footer[9] = 2;
+    const pattern = new Uint8Array([0, 59, 1, 0, 100, 64, 0, 96, ...footer]);
+    const midi = await runWorker('convertPattern', {
+      direction: 'midi', buffer: pattern.buffer, options: { noteMap: { G1: 42 }, ppq: 480 },
+    });
+    const restored = await runWorker('convertPattern', {
+      direction: 'pattern', buffer: midi.buffer, options: { noteMap: { 42: 'G1' } },
+    });
+    let error;
+    try {
+      await runWorker('convertPattern', { direction: 'midi', buffer: pattern.buffer, options: { noteMap: {} } });
+    } catch (failure) { error = failure.message; }
+    return { bytes: Array.from(new Uint8Array(restored.buffer)), error };
+  })()`);
+  const bytes = Buffer.from(result.bytes);
+  const { inspectPattern } = require(path.join(appRoot, 'src', 'patternMetadata'));
+  assert.deepEqual((await inspectPattern(bytes)).usedPads, ['G1']);
+  assert.equal(bytes[1], 59);
+  assert.equal(bytes[2], 1);
+  assert.equal(bytes.readUInt16BE(6), 96);
+  assert.equal(bytes[bytes.length - 7], 2);
+  assert.match(result.error, /No MIDI note mapping for G1/);
 }
 
 /** Exercise the matrix's real drop listeners, selection, pending settings, and drag feedback. */
@@ -194,7 +366,7 @@ async function checkMatrix(evaluate) {
 /** Exercise the audit regressions through real controls, files, asynchronous media, and browser workers. */
 async function checkRegressions(contents, evaluate) {
   const info = path.join(card.directory, 'PAD_INFO.BIN');
-  const readPads = () => AudioPadInfo.fromFile(fs.readFileSync(info)).pads;
+  const readPads = () => SP404PadInfo.fromFile(fs.readFileSync(info)).pads;
   const readWave = () => fs.readFileSync(path.join(card.directory, 'A0000001.WAV'));
   async function writeCardUI() {
     await evaluate(`document.querySelector('button.write-card').click()`);
@@ -325,7 +497,7 @@ app.on('browser-window-created', (_event, window) => {
   window.webContents.on('console-message', (event) => {
     if (event.level === 'error') rendererErrors.push(event.message);
   });
-  window.webContents.on('render-process-gone', (_event, details) => finish(new Error(details.reason)));
+  window.webContents.on('render-process-gone', (_event, details) => finish(new Error(`${details.reason} (exit ${details.exitCode})`)));
   window.webContents.once('did-fail-load', (_event, code, description) => finish(new Error(`${code}: ${description}`)));
   window.webContents.once('did-finish-load', () => checkWindow(window).then(() => finish(), finish));
 });
@@ -333,4 +505,15 @@ app.on('browser-window-created', (_event, window) => {
 setTimeout(() => finish(new Error('Electron smoke test exceeded 90 seconds.')), 90000).unref();
 process.on('unhandledRejection', finish);
 process.on('uncaughtException', finish);
-require(path.join(appRoot, 'src', 'main.js'));
+/** Load ESM tools and fixtures before creating windows or acquiring the app's single-instance lock. */
+async function start() {
+  ({ SP404PadInfo, AudioWAV } = await loadDataTools());
+  card = await createCard({ seconds: 4, prefix: 'super-pads-#card-' });
+  replacement = await createCard();
+  app.setPath('userData', path.join(card.root, 'profile'));
+  for (const filename of ['A0000001.WAV', 'A0000002.WAV', 'A0000010.WAV']) {
+    fs.copyFileSync(card.file, path.join(card.directory, filename));
+  }
+  require(path.join(appRoot, 'src', 'main.js'));
+}
+start().catch(finish);

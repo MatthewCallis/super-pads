@@ -4,7 +4,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const { test } = require('node:test');
-const { AudioWAV } = require('@uttori/audio-wave');
+const loadDataTools = require('../src/dataTools');
+const runDataWorker = require('../src/runWorker');
 const WaveformData = require('waveform-data');
 const { createCard } = require('./helpers');
 
@@ -27,7 +28,7 @@ function runWorker(name, data) {
 }
 
 test('released audio libraries round-trip all 120 pads and saved state', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
   const parsed = await runWorker('parsePads', card);
   assert.equal(parsed.pads.length, 120);
@@ -63,7 +64,7 @@ test('waveform worker produces 8-bit peaks from transferred PCM channels', async
 });
 
 test('card parser maps pad 10 correctly and rejects incomplete metadata', async (t) => {
-  const card = createCard();
+  const card = await createCard();
   t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
   fs.copyFileSync(card.file, path.join(card.directory, 'A0000010.WAV'));
   const parsed = await runWorker('parsePads', card);
@@ -93,13 +94,14 @@ test('long waveforms retain the final audio feature within the requested width',
 
 for (const [channels, expectedChannels] of [['Mono', 1], ['Stereo', 2]]) {
   test(`bundled FFmpeg converts ${channels} audio to SP-404SX WAV`, { timeout: 20000 }, async (t) => {
-    const card = createCard();
+    const { AudioWAV } = await loadDataTools();
+    const card = await createCard();
     t.after(() => fs.rmSync(card.root, { recursive: true, force: true }));
     const pad = { label: 'B3', filename: 'B0000003.WAV', channels };
-    const result = await runWorker('encodeFile', { ...card, pad });
+    const result = await runDataWorker('encodeFile', { ...card, pad });
     assert.equal(result.success, true);
     const output = fs.readFileSync(path.join(card.directory, pad.filename));
-    const { chunks } = AudioWAV.fromFile(output);
+    const { chunks } = AudioWAV.fromFile(output, { strict: true });
     const format = chunks.find((chunk) => chunk.type === 'format').value;
     assert.equal(format.sampleRate, 44100);
     assert.equal(format.channels, expectedChannels);

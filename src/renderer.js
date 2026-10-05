@@ -5,6 +5,8 @@ const path = require('node:path');
 const runWorker = require('./src/runWorker.js');
 const formatBytes = require('./src/formatBytes.js');
 const { canDragPad, transferPads } = require('./src/padTransfer.js');
+const PatternPanel = require('./src/patternPanel.js');
+const { emptyPatternSlots } = require('./src/patternSlots.js');
 
 /** Custom drag data is accepted only while this renderer owns an active pad drag. */
 const PAD_DRAG_TYPE = 'application/x-super-pads-pad';
@@ -16,6 +18,7 @@ let state = {
   pads: {},
   padInfo: 'PAD_INFO.BIN',
   currentPad: 'A1',
+  patterns: emptyPatternSlots(),
 };
 
 // Loading
@@ -106,6 +109,56 @@ let controlsController;
 // A single operation owns the card until staging, commit, and recovery have finished.
 let cardReady = false;
 let busy = false;
+/**
+ * Serialize pattern work with card access, retaining pending edits on failure.
+ * Native dialogs use showProgress=false: waiting for a choice is not file processing.
+ */
+const performPatternOperation = async (operation, { showProgress = true } = {}) => {
+  if (busy || !cardReady) return undefined;
+  busy = true;
+  hideError();
+  if (showProgress) showLoading();
+  try { return await operation(); }
+  catch (error) { showError(error); return undefined; }
+  finally {
+    busy = false;
+    if (showProgress) hideLoading();
+  }
+};
+const patternPanel = new PatternPanel({
+  getState: () => state, isReady: () => cardReady, isBusy: () => busy,
+  perform: performPatternOperation, showError,
+});
+
+/** Switch card views without changing either view's selection; tabs support standard arrow/Home/End navigation. */
+const selectTab = (name) => {
+  for (const tab of document.querySelectorAll('.workspace-tabs [role="tab"]')) {
+    const active = tab.id === `${name}-tab`;
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+    document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
+  }
+  document.querySelector('.matrix-help').hidden = name !== 'pads' || !cardReady;
+  const middle = document.querySelector('.right .middle');
+  middle.classList.toggle('patterns-active', name === 'patterns');
+  middle.scrollTop = 0;
+  document.querySelector('.matrix-legend span:first-child').lastChild.textContent = name === 'pads' ? 'Sample' : 'Pattern';
+  if (name === 'patterns') {
+    preview.clear();
+    patternPanel.render();
+  } else if (cardReady) renderLeft(state.currentPad);
+};
+for (const tab of document.querySelectorAll('.workspace-tabs [role="tab"]')) {
+  tab.addEventListener('click', () => selectTab(tab.id.replace('-tab', '')));
+  tab.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    let target = 'pads';
+    if (event.key === 'End' || (event.key.startsWith('Arrow') && tab.id === 'pads-tab')) target = 'patterns';
+    selectTab(target);
+    document.querySelector(`#${target}-tab`).focus();
+  });
+}
 const write = document.querySelector('button.write-card');
 write.addEventListener('click', async () => {
   if (busy || !cardReady) return;
@@ -115,16 +168,19 @@ write.addEventListener('click', async () => {
   preview.clear();
   showLoading();
   try {
-    const { pads, warning } = await runWorker('writeCard', { root: state.root, state });
+    const { pads, patterns, warning } = await runWorker('writeCard', { root: state.root, state });
     preview.cache.clear();
     state.pads = Object.fromEntries(pads.map((pad) => [pad.label, pad]));
+    state.patterns = patterns || emptyPatternSlots();
     renderPads();
+    patternPanel.render();
     if (warning) showError(warning);
   } catch (error) {
     // Keep pending edits on failure; incomplete recovery must be retried by reopening the card first.
     if (error.recoveryRequired) {
       cardReady = false;
       togglePicker(false);
+      patternPanel.render();
     }
     showError(error);
   } finally {
@@ -149,7 +205,7 @@ const setExternalFile = (filePath, size = 0, label = state.currentPad) => {
 /** Expose all bank groups only after a complete card read, keeping the folder picker available for recovery. */
 const togglePicker = (show) => {
   document.querySelector('.bank-matrix').hidden = !show;
-  document.querySelector('.matrix-help').hidden = !show;
+  document.querySelector('.matrix-help').hidden = !show || document.querySelector('#pads-panel').hidden;
   document.querySelector('.matrix-legend').hidden = !show;
   document.querySelector('.matrix-empty').hidden = show;
   document.querySelector('button.choose-folder').textContent = show ? 'Change Folder' : 'Pick Folder';
@@ -485,14 +541,17 @@ const parsePads = async () => {
   preview.clear();
   showLoading();
   try {
-    const { pads } = await runWorker('parsePads', { root: state.root });
+    const { pads, patterns } = await runWorker('parsePads', { root: state.root });
     state.pads = Object.fromEntries(pads.map((pad) => [pad.label, { ...pad, convert: false, remove: false }]));
+    state.patterns = patterns;
     cardReady = true;
     hideError();
     renderPads();
+    patternPanel.render();
   } catch (error) {
     preview.clear();
     togglePicker(false);
+    patternPanel.render();
     showError(`Card unavailable: ${error.message}`);
   } finally {
     busy = false;

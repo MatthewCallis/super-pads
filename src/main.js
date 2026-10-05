@@ -1,6 +1,39 @@
 const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const runWorker = require('./runWorker');
+const { atomicWrite } = require('./fileStorage');
+
+/** Return a user-selected MIDI/native pattern path; cancellation is an ordinary empty result. */
+ipcMain.handle('pickPatternFile', async (event) => {
+  const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+    title: 'Import MIDI or SX Pattern', properties: ['openFile', 'dontAddToRecent'],
+    filters: [{ name: 'MIDI and SX patterns', extensions: ['mid', 'midi', 'bin'] }],
+  });
+  return result.canceled ? undefined : result.filePaths[0];
+});
+
+/** Export only to the path selected in the save dialog; flush complete bytes before replacement. */
+ipcMain.handle('exportPatternFile', async (event, { bytes, filename, midi }) => {
+  const result = await dialog.showSaveDialog(BrowserWindow.fromWebContents(event.sender), {
+    title: midi ? 'Export MIDI' : 'Export SX Pattern', defaultPath: path.basename(filename),
+    filters: [{ name: midi ? 'MIDI' : 'SX pattern', extensions: [midi ? 'mid' : 'bin'] }],
+  });
+  if (result.canceled || !result.filePath) return false;
+  atomicWrite(result.filePath, Buffer.from(bytes));
+  return true;
+});
+
+/** Own ESM-dependent jobs in Node threads; reply only after their worker has produced a terminal result. */
+ipcMain.handle('runDataWorker', async (_event, { name, data }) => {
+  try {
+    if (!['parsePads', 'encodePads', 'writeCard', 'convertPattern', 'encodeFile'].includes(name)) throw new Error('Unsupported data operation.');
+    return await runWorker(name, data);
+  } catch (error) {
+    // Electron's rejected IPC promises discard custom error fields, including the recovery lockout flag.
+    return { success: false, error: error.message, recoveryRequired: Boolean(error.recoveryRequired) };
+  }
+});
 
 // Catch Fatal Exceptions
 process.on('uncaughtException', (_error) => {
@@ -19,7 +52,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     // Five banks per row expose all 120 pads; smaller windows keep the matrix scrollable.
     width: 1480,
-    height: 680,
+    height: 760,
     minWidth: 1100,
     minHeight: 600,
     title: 'Super Pads',
