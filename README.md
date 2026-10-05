@@ -2,7 +2,8 @@
 
 Super Pads helps manage samples on a SP-404SX.
 
-![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
+![Super Pads - Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/pads.png)
+![Super Pads - Patterns](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/patterns.png)
 
 Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version.
 
