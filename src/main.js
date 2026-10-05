@@ -17,14 +17,17 @@ if (!gotTheLock) {
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 620,
-    height: 540,
+    // Five banks per row expose all 120 pads; smaller windows keep the matrix scrollable.
+    width: 1480,
+    height: 680,
+    minWidth: 1100,
+    minHeight: 600,
     title: 'Super Pads',
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#FFF',
     // transparent: true,
     frame: process.platform === 'darwin',
-    resizable: false,
+    resizable: true,
     webPreferences: {
       // The local renderer and its audio/file workers still use CommonJS and Node APIs.
       nodeIntegration: true,

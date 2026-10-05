@@ -4,35 +4,26 @@ Super Pads helps manage samples on a SP-404SX.
 
 ![Super Pads](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/example.png)
 
+Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version.
+
 ## Latest Version: v1.3.0 (2026-09-14)
 
-- Updated Electron to 44.3.0 and refreshed dependencies.
-- Updated external-link and drag-and-drop handling for modern Electron.
-- Made SD-card saves recoverable with staged writes, backups, rollback, and interrupted-save recovery.
-- Failed conversions now preserve pending edits for retry.
-- Fixed stereo-to-mono conversion, trim handling when replacing samples, pad-10 metadata, and invalid-card error handling.
-- Improved audio previews: switching pads stops playback, waveforms show the full sample, stale previews are cancelled, and special characters in file paths work correctly.
-- Reduced resource usage through worker cleanup, waveform caching, faster WAV scans, limited conversion concurrency, and fewer UI rebuilds.
-- Fixed accumulating loading animations and bank-dropdown text overlapping the arrow.
-- Added npm run package to build all five release assets: macOS ARM64/x64 DMGs, Windows x64 portable executable, and Linux x64 AppImage/archive.
-- Fixed oversized bundles and platform-specific FFmpeg packaging.
-- Updated icon generation and stylesheet build commands.
-- Added 20 automated tests and expanded Electron UI regression coverage.
-- Requirements: macOS 13+ or Windows 10+. Building from source requires Node.js 24+.
-
-This is the last version with this UI. The next version will have all the pad banks available at once. Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version.
+- Pad Editor now shows all ten pad banks together in a wider and resizable window.
+- Pattern Import / Export! You can now import and export your patterns to and from MIDI
+- Fixed several bugs and edge cases.
 
 ## How to Use
 
 1. Open the app
 1. Select your SD Card root directory by clicking `Pick Folder`
-1. Select the bank with the drop down and click on the pad you want to edit
-1. Adjust parameters for existing pads, remove pads, or add pads with pick files / drag & drop files to be converted to Wave with [FFmpeg](https://ffmpeg.org/) behind the scenes.
-1. Click `Write SD Card` to save your changed and convert files.
+1. Click any pad in banks A–J to edit its settings on the left.
+1. Adjust parameters, remove samples, or drop an audio file directly onto any pad. You can also use `Drop File or Pick File` on the left. Imported files are converted to Wave with [FFmpeg](https://ffmpeg.org/) when saving.
+1. Drag a sample to another pad to move it. Dropping onto an occupied pad swaps both samples, including their settings and trim points. Pending imports can be moved too.
+1. Click `Write SD Card` to save your changes and convert imported files. Imports, transfers, and removals stay queued until you write the card.
 1. If any error comes up you will see it above the pad matrix, click it to dismiss.
 1. If you think something should be working but it not, please [file an issue](https://github.com/MatthewCallis/super-pads/issues) or [tweet at me](https://twitter.com/superfamicom/status/1343989480160522240).
 
-Card writes stage conversions before changing the card and keep recovery backups until the save completes. Failed conversions retain your pending edits for retry. If a save is interrupted, reopen the card in Super Pads to recover it before using it in the sampler. Leave the `.super-pads-transaction` recovery folder in place until recovery completes. Staging and backups require free space for the changed samples and their previous versions.
+Card writes stage imports and transfers before changing the card and keep recovery backups until the save completes. Failed conversions retain your pending edits for a retry. If a save is interrupted, reopen the card in Super Pads to recover it before using it in the sampler. Leave the `.super-pads-transaction` recovery folder in place until recovery completes. Staging and backups require free space for the changed samples and their previous versions.
 
 ### Video Tutorials
 
@@ -207,6 +198,24 @@ Features I have planned to work on as time permits, roughly in order:
 - [alphardex](https://codepen.io/alphardex) - The rainbow drop area background.
 
 ![Super Pads Loading Screen](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/loading.png)
+
+## Change Log
+
+### v1.3.0 (2026-09-14)
+
+- Updated Electron to 44.3.0 and refreshed dependencies.
+- Updated external-link and drag-and-drop handling for modern Electron.
+- Made SD-card saves recoverable with staged writes, backups, rollback, and interrupted-save recovery.
+- Failed conversions now preserve pending edits for retry.
+- Fixed stereo-to-mono conversion, trim handling when replacing samples, pad-10 metadata, and invalid-card error handling.
+- Improved audio previews: switching pads stops playback, waveforms show the full sample, stale previews are cancelled, and special characters in file paths work correctly.
+- Reduced resource usage through worker cleanup, waveform caching, faster WAV scans, limited conversion concurrency, and fewer UI rebuilds.
+- Fixed accumulating loading animations and bank-dropdown text overlapping the arrow.
+- Added npm run package to build all five release assets: macOS ARM64/x64 DMGs, Windows x64 portable executable, and Linux x64 AppImage/archive.
+- Fixed oversized bundles and platform-specific FFmpeg packaging.
+- Updated icon generation and stylesheet build commands.
+- Added 20 automated tests and expanded Electron UI regression coverage.
+- Requirements: macOS 13+ or Windows 10+. Building from source requires Node.js 24+.
 
 ## License
 

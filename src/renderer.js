@@ -4,13 +4,18 @@ const AudioPreview = require('./src/audioPreview.js');
 const path = require('node:path');
 const runWorker = require('./src/runWorker.js');
 const formatBytes = require('./src/formatBytes.js');
+const { canDragPad, transferPads } = require('./src/padTransfer.js');
+
+/** Custom drag data is accepted only while this renderer owns an active pad drag. */
+const PAD_DRAG_TYPE = 'application/x-super-pads-pad';
+/** Active source label; cleared on drop/end so a detached drag node cannot leave reusable payloads. */
+let draggedPad;
 
 let state = {
   root: '',
   pads: {},
   padInfo: 'PAD_INFO.BIN',
   currentPad: 'A1',
-  currentBank: 'bank-a',
 };
 
 // Loading
@@ -129,25 +134,75 @@ write.addEventListener('click', async () => {
   }
 });
 
-const setExternalFile = (path, size = 0) => {
-  if (busy || !cardReady) return;
-  state.pads[state.currentPad].convert = true;
-  state.pads[state.currentPad].avaliable = false;
-  state.pads[state.currentPad].externalFile = path;
-  state.pads[state.currentPad].externalFileSize = size;
-  state.pads[state.currentPad].remove = false;
-  updatePad(state.currentPad);
-  renderLeft(state.currentPad);
+/** Queue one disk file on the addressed slot and select it; conversion happens only when saving. */
+const setExternalFile = (filePath, size = 0, label = state.currentPad) => {
+  if (busy || !cardReady || !state.pads[label]) return;
+  Object.assign(state.pads[label], {
+    convert: true, avaliable: false, externalFile: filePath, externalFileSize: size, remove: false,
+  });
+  // Replacing a moved sample changes its source to this import, while its old slot still stays vacant.
+  delete state.pads[label].sourceFilename;
+  updatePad(label);
+  renderLeft(label);
 };
 
+/** Expose all bank groups only after a complete card read, keeping the folder picker available for recovery. */
 const togglePicker = (show) => {
-  document.querySelector('.right .top .bank-selector').style.display = show ? 'flex' : 'none';
-  document.querySelector('.right .top .folder-selector').style.display = show ? 'none' : 'flex';
+  document.querySelector('.bank-matrix').hidden = !show;
+  document.querySelector('.matrix-help').hidden = !show;
+  document.querySelector('.matrix-legend').hidden = !show;
+  document.querySelector('.matrix-empty').hidden = show;
+  document.querySelector('button.choose-folder').textContent = show ? 'Change Folder' : 'Pick Folder';
+  document.querySelector('.card-path').textContent = show ? state.root : 'Select your SD card to get started';
   document.querySelector('.right .bottom .write-card').style.display = show ? 'block' : 'none';
-
-  for (const node of document.querySelectorAll('.right .pad-list')) node.classList.remove('open');
-  document.querySelector(`.right .pad-list.${state.currentBank}`).classList.add('open');
 };
+
+/** Accept a local pad move or one real filesystem file without navigating Electron to the dropped file. */
+const dropOnPad = (event, label) => {
+  event.preventDefault();
+  event.stopPropagation();
+  clearDragFeedback();
+  if (busy || !cardReady) return;
+  const transfer = event.dataTransfer;
+  if (!transfer) return;
+  if (transfer.types.includes(PAD_DRAG_TYPE)) {
+    const source = transfer.getData(PAD_DRAG_TYPE);
+    // Ignore forged or stale drag payloads from outside this editor.
+    if (source !== draggedPad) return;
+    draggedPad = undefined;
+    if (transferPads(state.pads, source, label)) {
+      state.currentPad = label;
+      renderPads();
+    }
+    return;
+  }
+  if (transfer.files.length !== 1) {
+    showError('Drop one audio file onto a pad.');
+    return;
+  }
+  const file = transfer.files[0];
+  // Electron 32 removed File.path; virtual files have no filesystem source to convert.
+  const filePath = webUtils.getPathForFile(file);
+  if (filePath) setExternalFile(filePath, file.size, label);
+  else showError('Drop a file from your computer.');
+};
+
+/** Drag types are readable during hover even though the browser protects their payload until drop. */
+const acceptsDrag = (event) => Boolean(event.dataTransfer && !busy && cardReady
+  && (event.dataTransfer.types.includes('Files')
+    || (draggedPad && event.dataTransfer.types.includes(PAD_DRAG_TYPE))));
+
+/** Remove transient styling after a drop or cancellation, including when the source node was rebuilt. */
+const clearDragFeedback = () => {
+  for (const node of document.querySelectorAll('.dragging, .drop-target, .gradient-background')) {
+    node.classList.remove('dragging', 'drop-target', 'gradient-background');
+  }
+};
+
+// Suppress native file navigation even when a file misses every valid pad target.
+document.addEventListener('dragover', (event) => event.preventDefault());
+document.addEventListener('drop', (event) => event.preventDefault());
+document.addEventListener('dragend', () => { draggedPad = undefined; clearDragFeedback(); });
 
 const onChange = (field) => () => {
   state.pads[state.currentPad][field] = !state.pads[state.currentPad][field];
@@ -157,7 +212,7 @@ const onChange = (field) => () => {
 const previewPath = (pad) => {
   if (!pad) return undefined;
   if (pad.convert) return pad.externalFile;
-  if (pad.samplePresent) return path.join(state.root, 'ROLAND', 'SP-404SX', 'SMPL', pad.filename);
+  if (pad.samplePresent) return path.join(state.root, 'ROLAND', 'SP-404SX', 'SMPL', pad.sourceFilename || pad.filename);
   return undefined;
 };
 
@@ -172,6 +227,11 @@ const renderLeft = (label) => {
     return;
   }
   state.currentPad = label;
+  for (const node of document.querySelectorAll('.pad-list .pad')) {
+    const selected = node.dataset.label === label;
+    node.classList.toggle('selected', selected);
+    node.setAttribute('aria-pressed', String(selected));
+  }
 
   controlsController?.abort();
   controlsController = new AbortController();
@@ -280,31 +340,13 @@ const renderLeft = (label) => {
   listen('.left .drop-zone', 'click', () => {
     ipcRenderer.send('pickFile');
   });
-  listen('.left .drop-zone', 'drop', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (event.dataTransfer.files.length > 0) {
-      const file = event.dataTransfer.files[0];
-      // Electron 32 removed File.path; virtual files have no filesystem path to convert.
-      const path = webUtils.getPathForFile(file);
-      if (path) {
-        setExternalFile(path, file.size);
-      } else {
-        showError('Drop a file from your computer.');
-      }
-    }
-
-    dropZone.classList.remove('gradient-background');
-  });
+  listen('.left .drop-zone', 'drop', (event) => dropOnPad(event, state.currentPad));
 
   listen('.left .drop-zone', 'dragover', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    dropZone.classList.add('gradient-background');
-  });
-
-  listen('.left .drop-zone', 'dragenter', (_event) => {
+    if (!acceptsDrag(e)) return;
+    e.dataTransfer.dropEffect = draggedPad ? 'move' : 'copy';
     dropZone.classList.add('gradient-background');
   });
 
@@ -320,48 +362,80 @@ const updatePad = (label) => {
   if (!container) return;
   container.classList.toggle('open-pad', pad.avaliable);
   container.classList.toggle('active-pad', !pad.avaliable);
-  container.classList.toggle('add-pad', Boolean(pad.convert || pad.targetChannels));
+  container.classList.toggle('add-pad', Boolean(pad.convert || pad.targetChannels || pad.relocated));
   container.classList.toggle('delete-pad', Boolean(pad.remove));
+  container.draggable = canDragPad(pad);
+  let status = 'Empty';
+  if (canDragPad(pad)) status = 'Sample';
+  if (pad.convert || pad.targetChannels || pad.relocated) status = 'Pending';
+  if (pad.remove) status = 'Remove';
+  container.querySelector('.pad-status').textContent = status;
+  container.title = `${label}: ${status}. Click to edit; drop a file here or drag a sample to move or swap.`;
+  const bank = document.querySelector(`.bank-group[data-bank="${label[0]}"]`);
+  const filled = Object.values(state.pads).filter((item) => item.label[0] === label[0] && canDragPad(item)).length;
+  bank.querySelector('.bank-count').textContent = `${filled} / 12`;
 };
 
+/** Build one keyboard-selectable pad with direct file drops and local sample move/swap support. */
 const buildPads = (pad) => {
-  const container = document.createElement('div');
+  const container = document.createElement('button');
+  container.type = 'button';
+  container.dataset.label = pad.label;
   container.classList.add('pad');
   container.classList.add(`pad-${pad.label.slice(1)}`);
-  container.classList.add(pad.label === state.currentPad ? 'selected' : 'pad');
-  container.classList.add(pad.avaliable ? 'open-pad' : 'active-pad');
-  container.classList.add(pad.convert ? 'add-pad' : 'pad');
-  container.classList.add(pad.remove ? 'delete-pad' : 'pad');
-  container.textContent = pad.label;
-  container.addEventListener('click', (event) => {
+  container.classList.toggle('selected', pad.label === state.currentPad);
+  const label = document.createElement('span');
+  label.className = 'pad-name';
+  label.textContent = pad.label;
+  const status = document.createElement('span');
+  status.className = 'pad-status';
+  container.append(label, status);
+  container.addEventListener('click', () => {
     if (busy || !cardReady) return;
-    for (const node of document.querySelectorAll('.right .pad-list .pad')) node.classList.remove('selected');
-    event.target.classList.add('selected');
     renderLeft(pad.label);
   });
+  container.addEventListener('dragstart', (event) => {
+    if (busy || !cardReady || !canDragPad(state.pads[pad.label])) {
+      event.preventDefault();
+      return;
+    }
+    draggedPad = pad.label;
+    event.dataTransfer.setData(PAD_DRAG_TYPE, pad.label);
+    event.dataTransfer.effectAllowed = 'move';
+    container.classList.add('dragging');
+  });
+  // A successful drop can detach this source during renderPads, so cleanup cannot rely on bubbling.
+  container.addEventListener('dragend', () => { draggedPad = undefined; clearDragFeedback(); });
+  container.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    if (!acceptsDrag(event) || draggedPad === pad.label) return;
+    event.dataTransfer.dropEffect = draggedPad ? 'move' : 'copy';
+    container.classList.add('drop-target');
+  });
+  container.addEventListener('dragleave', (event) => {
+    // Moving over a label inside this same button is still hovering the same drop target.
+    if (!container.contains(event.relatedTarget)) container.classList.remove('drop-target');
+  });
+  container.addEventListener('drop', (event) => dropOnPad(event, pad.label));
   return container;
 };
 
+/** Rebuild all ten banks after loading, saving, or rearranging; ordinary control edits update one pad. */
 const renderPads = () => {
   togglePicker(true);
 
   // Empty banks
   for (const bank of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) {
     const container = document.querySelector(`.right .middle .bank-${bank}`);
-    const cNode = container.cloneNode(false);
-    container.parentNode.replaceChild(cNode, container);
+    container.replaceChildren();
   }
 
   // Build pads
   for (const pad of Object.values(state.pads)) {
     const container = document.querySelector(`.right .middle .bank-${pad.label[0].toLowerCase()}`);
     container.append(buildPads(pad));
+    updatePad(pad.label);
   }
-
-  // Update DOM
-  for (const node of document.querySelectorAll('.pad-list')) node.classList.remove('open');
-  document.querySelector(`.pad-list.${state.currentBank}`).classList.add('open');
-  document.querySelector('.bank-selector select').value = state.currentBank;
   renderLeft(state.currentPad);
 };
 
@@ -370,13 +444,6 @@ document.querySelector('button.choose-folder').addEventListener('click', () => {
   // event.target.disabled = true;
   ipcRenderer.send('pickSDCard');
 });
-
-// Listen for Bank Changes
-document.querySelector('.bank-selector select').addEventListener('change', (event) => {
-  state.currentBank = event.target.value;
-  for (const node of document.querySelectorAll('.pad-list')) node.classList.remove('open');
-  document.querySelector(`.pad-list.${state.currentBank}`).classList.add('open');
-}, false);
 
 // #region IPC Main Tasks
 ipcRenderer.on('pickSDCard-task-finished', (event, { valid, root, error }) => {

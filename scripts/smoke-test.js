@@ -79,10 +79,15 @@ async function checkWindow(window) {
   await waitFor(() => evaluate('document.querySelectorAll(".pad-list .pad").length === 120'), 'SD card parsing');
   await waitFor(() => evaluate('!document.querySelector("button.play").disabled'), 'audio preview decoding');
   await waitFor(() => evaluate('Array.from(document.querySelector("#waveform").getContext("2d").getImageData(0, 0, 240, 78).data).some(value => value !== 0)'), 'waveform rendering');
+  assert.equal(await evaluate('document.querySelectorAll(".right select").length'), 0);
+  assert.equal(await evaluate(`Array.from(document.querySelectorAll('.pad-list .pad')).every(pad => {
+    const rect = pad.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.right <= innerWidth && rect.bottom <= innerHeight;
+  })`), true);
 
   // A File constructed in JavaScript has no disk path. CDP supplies a real file-backed File.
   contents.debugger.attach('1.3');
-  await evaluate('const input = document.createElement("input"); input.type = "file"; input.id = "smoke-file"; document.body.append(input)');
+  await evaluate('const input = document.createElement("input"); input.type = "file"; input.id = "smoke-file"; input.hidden = true; document.body.append(input)');
   const { root } = await contents.debugger.sendCommand('DOM.getDocument');
   const { nodeId } = await contents.debugger.sendCommand('DOM.querySelector', { nodeId: root.nodeId, selector: '#smoke-file' });
   await contents.debugger.sendCommand('DOM.setFileInputFiles', { nodeId, files: [card.file] });
@@ -114,10 +119,76 @@ async function checkWindow(window) {
   const { chunks } = AudioWAV.fromFile(fs.readFileSync(path.join(card.directory, pad.filename)));
   assert.equal(chunks.find((chunk) => chunk.type === 'format').value.sampleRate, 44100);
   assert.equal(chunks.find((chunk) => chunk.type === 'roland').value.sampleIndex, 14);
+  await checkMatrix(evaluate);
+  // Opt-in captures let developers inspect the real renderer without retaining fixture files.
+  if (process.env.SUPER_PADS_SCREENSHOT) {
+    // Let rapid synthetic selections reach the compositor before capturing the final matrix state.
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    fs.writeFileSync(process.env.SUPER_PADS_SCREENSHOT, (await contents.capturePage()).toPNG());
+  }
+  window.setSize(1100, 600);
+  assert.equal(await evaluate(`(() => {
+    const matrix = document.querySelector('.middle');
+    return matrix.scrollHeight > matrix.clientHeight && document.body.scrollWidth === innerWidth;
+  })()`), true);
+  await evaluate(`document.querySelector('.pad[data-label="J12"]').scrollIntoView({ block: 'nearest' })`);
+  assert.equal(await evaluate(`document.querySelector('.pad[data-label="J12"]').getBoundingClientRect().bottom <= innerHeight`), true);
+  window.setSize(1480, 680);
   await checkRegressions(contents, evaluate);
   assert.deepEqual(await evaluate('smokeErrors'), []);
   assert.deepEqual(rendererErrors, []);
-  console.log(`Electron ${process.versions.electron}: startup, links, 120 pads, audio preview, waveform, file drop, full card writes, recovery-related error handling, previews, worker cleanup, and conversion passed.`);
+  console.log(`Electron ${process.versions.electron}: startup, links, all 120 visible pads, cross-bank moves/swaps, direct file drops, audio preview, waveform, full card writes, recovery-related error handling, previews, worker cleanup, and conversion passed.`);
+}
+
+/** Exercise the matrix's real drop listeners, selection, pending settings, and drag feedback. */
+async function checkMatrix(evaluate) {
+  await evaluate(`
+    window.smokeDragPad = (sourceLabel, targetLabel) => {
+      const source = document.querySelector('.pad[data-label="' + sourceLabel + '"]');
+      const target = document.querySelector('.pad[data-label="' + targetLabel + '"]');
+      const transfer = new DataTransfer();
+      source.dispatchEvent(new DragEvent('dragstart', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+      target.dispatchEvent(new DragEvent('dragover', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+      const highlighted = target.classList.contains('drop-target');
+      target.dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+      source.dispatchEvent(new DragEvent('dragend', { dataTransfer: transfer, bubbles: true }));
+      return highlighted;
+    };
+    const padTransfer = new DataTransfer();
+    padTransfer.items.add(document.querySelector('#smoke-file').files[0]);
+    document.querySelector('.pad[data-label="J12"]').dispatchEvent(new DragEvent('drop', { dataTransfer: padTransfer }));
+  `);
+  assert.equal(await evaluate('state.currentPad'), 'J12');
+  assert.equal(await evaluate('state.pads.J12.externalFile'), card.file);
+  await evaluate(`
+    const volume = document.querySelector('input.volume');
+    volume.value = 49;
+    volume.dispatchEvent(new Event('change'));
+    document.querySelector('input.loop-button').click();
+  `);
+  assert.equal(await evaluate(`smokeDragPad('J12', 'B4')`), true);
+  assert.equal(await evaluate('state.currentPad'), 'B4');
+  assert.equal(await evaluate('state.pads.B4.convert'), true);
+  assert.equal(await evaluate('state.pads.B4.volume'), 49);
+  assert.equal(await evaluate('state.pads.B4.loop'), true);
+  assert.equal(await evaluate('canDragPad(state.pads.J12)'), false);
+  assert.equal(await evaluate(`smokeDragPad('B4', 'A1')`), true);
+  assert.equal(await evaluate('state.pads.A1.volume'), 49);
+  assert.equal(await evaluate('state.pads.B4.volume'), 127);
+  // Restore A1's queued import for the existing regression suite while retaining the new J12 import.
+  await evaluate(`smokeDragPad('A1', 'B4'); smokeDragPad('B4', 'J12');`);
+  assert.equal(await evaluate('state.pads.A1.volume'), 127);
+  assert.equal(await evaluate('state.pads.J12.volume'), 49);
+  await evaluate(`document.querySelector('.pad[data-label="A1"] .pad-name').click()`);
+  assert.equal(await evaluate('state.currentPad'), 'A1');
+  assert.equal(await evaluate('document.querySelectorAll(".pad.selected").length'), 1);
+  assert.equal(await evaluate('document.querySelectorAll(".dragging, .drop-target").length'), 0);
+  await evaluate(`
+    const forged = new DataTransfer();
+    forged.setData(PAD_DRAG_TYPE, 'A1');
+    document.querySelector('.pad[data-label="C4"]').dispatchEvent(new DragEvent('drop', { dataTransfer: forged }));
+  `);
+  assert.equal(await evaluate('canDragPad(state.pads.C4)'), false);
 }
 
 /** Exercise the audit regressions through real controls, files, asynchronous media, and browser workers. */
@@ -134,6 +205,18 @@ async function checkRegressions(contents, evaluate) {
   await writeCardUI();
   assert.equal(await evaluate('state.pads.A1.convert'), false);
   assert.equal(readPads()[0].originalSampleStart, 512);
+  assert.equal(readPads()[119].volume, 49);
+  const beforeMove = readWave();
+  await evaluate(`smokeDragPad('A1', 'F6')`);
+  assert.equal(await evaluate('previewPath(state.pads.F6)'), path.join(card.directory, 'A0000001.WAV'));
+  assert.deepEqual(readWave(), beforeMove);
+  await writeCardUI();
+  assert.equal(fs.existsSync(path.join(card.directory, 'A0000001.WAV')), false);
+  assert.equal(readPads()[65].avaliable, false);
+  await evaluate(`smokeDragPad('F6', 'A1')`);
+  await writeCardUI();
+  assert.deepEqual(readWave(), beforeMove);
+  assert.equal(fs.existsSync(path.join(card.directory, 'F0000006.WAV')), false);
   await evaluate(`document.querySelector('input.mono-stereo-button').click()`);
   await writeCardUI();
   assert.equal(readPads()[0].channels, 'Mono');

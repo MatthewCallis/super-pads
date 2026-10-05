@@ -137,39 +137,97 @@
       <div class="right">
         <div class="top">
           <div class="folder-selector">
-            <label>SD CARD</label>
+            <div class="card-heading">
+              <h1>All pads</h1>
+              <p class="card-path">Select your SD card to get started</p>
+            </div>
             <button class="choose-folder" type="button">Pick Folder</button>
           </div>
-          <div class="bank-selector">
-            <label for="bank-selector">PAD BANK</label>
-            <select name="bank-selector">
-              <option value="bank-a">Bank A</option>
-              <option value="bank-b">Bank B</option>
-              <option value="bank-c">Bank C</option>
-              <option value="bank-d">Bank D</option>
-              <option value="bank-e">Bank E</option>
-              <option value="bank-f">Bank F</option>
-              <option value="bank-g">Bank G</option>
-              <option value="bank-h">Bank H</option>
-              <option value="bank-i">Bank I</option>
-              <option value="bank-j">Bank J</option>
-            </select>
-          </div>
+          <p class="matrix-help">Click on a pad to edit it. Drag samples to move them, dragging to occupied pads swap samples. Drop an audio file onto any pad to import.</p>
         </div>
         <div class="middle">
-          <p class="errors"></p>
-          <div class="pad-list bank-a open"></div>
-          <div class="pad-list bank-b"></div>
-          <div class="pad-list bank-c"></div>
-          <div class="pad-list bank-d"></div>
-          <div class="pad-list bank-e"></div>
-          <div class="pad-list bank-f"></div>
-          <div class="pad-list bank-g"></div>
-          <div class="pad-list bank-h"></div>
-          <div class="pad-list bank-i"></div>
-          <div class="pad-list bank-j"></div>
+          <p class="errors" role="alert"></p>
+          <div class="matrix-empty">All ten banks will appear here when you open an SD card.</div>
+          <div class="bank-matrix">
+            <section class="bank-group" data-bank="A" aria-labelledby="bank-a-title">
+              <div class="bank-heading">
+                <h2 id="bank-a-title">Bank A</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-a" role="group" aria-label="Bank A pads"></div>
+            </section>
+            <section class="bank-group" data-bank="B" aria-labelledby="bank-b-title">
+              <div class="bank-heading">
+                <h2 id="bank-b-title">Bank B</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-b" role="group" aria-label="Bank B pads"></div>
+            </section>
+            <section class="bank-group" data-bank="C" aria-labelledby="bank-c-title">
+              <div class="bank-heading">
+                <h2 id="bank-c-title">Bank C</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-c" role="group" aria-label="Bank C pads"></div>
+            </section>
+            <section class="bank-group" data-bank="D" aria-labelledby="bank-d-title">
+              <div class="bank-heading">
+                <h2 id="bank-d-title">Bank D</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-d" role="group" aria-label="Bank D pads"></div>
+            </section>
+            <section class="bank-group" data-bank="E" aria-labelledby="bank-e-title">
+              <div class="bank-heading">
+                <h2 id="bank-e-title">Bank E</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-e" role="group" aria-label="Bank E pads"></div>
+            </section>
+            <section class="bank-group" data-bank="F" aria-labelledby="bank-f-title">
+              <div class="bank-heading">
+                <h2 id="bank-f-title">Bank F</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-f" role="group" aria-label="Bank F pads"></div>
+            </section>
+            <section class="bank-group" data-bank="G" aria-labelledby="bank-g-title">
+              <div class="bank-heading">
+                <h2 id="bank-g-title">Bank G</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-g" role="group" aria-label="Bank G pads"></div>
+            </section>
+            <section class="bank-group" data-bank="H" aria-labelledby="bank-h-title">
+              <div class="bank-heading">
+                <h2 id="bank-h-title">Bank H</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-h" role="group" aria-label="Bank H pads"></div>
+            </section>
+            <section class="bank-group" data-bank="I" aria-labelledby="bank-i-title">
+              <div class="bank-heading">
+                <h2 id="bank-i-title">Bank I</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-i" role="group" aria-label="Bank I pads"></div>
+            </section>
+            <section class="bank-group" data-bank="J" aria-labelledby="bank-j-title">
+              <div class="bank-heading">
+                <h2 id="bank-j-title">Bank J</h2>
+                <span class="bank-count">0 / 12</span>
+              </div>
+              <div class="pad-list bank-j" role="group" aria-label="Bank J pads"></div>
+            </section>
+          </div>
         </div>
         <div class="bottom">
+          <div class="matrix-legend">
+            <span><i class="sample-dot"></i>Sample</span>
+            <span><i class="pending-dot"></i>Pending change</span>
+            <span><i class="remove-dot"></i>Removal</span>
+            <span><i class="selected-dot"></i>Selected</span>
+          </div>
           <button class="write-card" type="button">Write SD Card</button>
         </div>
       </div>

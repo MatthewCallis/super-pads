@@ -3,12 +3,13 @@ const path = require('node:path');
 const { AudioPadInfo } = require('@uttori/audio-padinfo');
 const readWaveMetadata = require('./readWaveMetadata');
 const encodeAudio = require('./encodeAudio');
+const relocateSample = require('./relocateSample');
 const { writeNew } = require('./fileStorage');
 const { encodePads, decodePads } = require('./padMetadata');
 const { CardTransaction, recoverCard, SAMPLE_DIRECTORY } = require('./cardTransaction');
 
-/** Run at most two conversions; await every started job before allowing rollback. */
-async function convertQueued(jobs) {
+/** Run at most two sample-staging jobs; await every started job before allowing rollback. */
+async function stageQueuedSamples(jobs) {
   let next = 0;
   let failure;
   async function consume() {
@@ -37,7 +38,7 @@ function convertOffsets(pad, source, size) {
 
 /**
  * Save a cloned editor snapshot as one recoverable card operation. Pending flags in the caller survive failures.
- * Converts and validates everything before replacing samples, metadata, or the saved editor state.
+ * Stages and validates all sample changes before replacing samples, metadata, or the saved editor state.
  */
 async function writeCard({ root, state }) {
   try { recoverCard(root); } catch (error) {
@@ -49,13 +50,20 @@ async function writeCard({ root, state }) {
   const pads = Object.values(snapshot.pads);
   // Validate identities before using any client-provided filenames as destinations.
   encodePads(pads);
+  for (const pad of pads) {
+    if (pad.sourceFilename !== undefined && (typeof pad.sourceFilename !== 'string'
+      || !/^[A-J]00000(?:0[1-9]|1[0-2])\.WAV$/.test(pad.sourceFilename))) {
+      throw new Error(`${pad.label}: invalid transfer source filename.`);
+    }
+  }
   const transaction = new CardTransaction(root);
   try {
     const jobs = [];
     const replacements = new Map();
     for (const pad of pads) {
       const target = `${SAMPLE_DIRECTORY}/${pad.filename}`;
-      if (pad.remove) {
+      // Moving into an empty slot leaves a vacancy whose old disk file must be removed at commit.
+      if (pad.remove || (pad.relocated && !pad.samplePresent && !pad.convert)) {
         transaction.stage(target, true);
         const defaults = AudioPadInfo.fromFile(AudioPadInfo.encodePad()).pads[0];
         Object.assign(pad, defaults, { label: pad.label, filename: pad.filename, size: 0, duration: 0, samplePresent: false });
@@ -66,7 +74,7 @@ async function writeCard({ root, state }) {
         pad.channels = pad.targetChannels;
       } else if (pad.convert || pad.targetChannels) {
         const imported = pad.convert;
-        const source = imported ? pad.externalFile : path.join(root, target);
+        const source = imported ? pad.externalFile : path.join(root, SAMPLE_DIRECTORY, pad.sourceFilename || pad.filename);
         if (!source) throw new Error(`${pad.label}: no conversion source selected.`);
         if (pad.targetChannels) pad.channels = pad.targetChannels;
         const destination = transaction.stage(target);
@@ -85,9 +93,19 @@ async function writeCard({ root, state }) {
           delete pad.previewError;
           pad.mtimeMs = fs.statSync(destination).mtimeMs;
         });
+      } else if (pad.sourceFilename && pad.sourceFilename !== pad.filename) {
+        const source = path.join(root, SAMPLE_DIRECTORY, pad.sourceFilename);
+        const destination = transaction.stage(target);
+        replacements.set(pad.label, destination);
+        // Every source is read before commit, so swaps and longer move chains cannot overwrite their inputs.
+        jobs.push(async () => {
+          relocateSample(source, destination, pad.label);
+          const { size, duration, mtimeMs } = readWaveMetadata(destination);
+          Object.assign(pad, { size, duration, mtimeMs });
+        });
       }
     }
-    await convertQueued(jobs);
+    await stageQueuedSamples(jobs);
     for (const pad of pads) {
       if (!pad.avaliable) {
         const file = replacements.get(pad.label) || path.join(root, SAMPLE_DIRECTORY, pad.filename);
@@ -102,6 +120,8 @@ async function writeCard({ root, state }) {
       pad.convert = false;
       pad.remove = false;
       delete pad.targetChannels;
+      delete pad.sourceFilename;
+      delete pad.relocated;
     }
     writeNew(transaction.stage(`${SAMPLE_DIRECTORY}/PAD_INFO.BIN`), encodePads(pads));
     writeNew(transaction.stage('super-pads.json'), JSON.stringify(snapshot, null, 2));

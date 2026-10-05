@@ -1,6 +1,5 @@
 :root {
   --gradient: linear-gradient(135deg, #739df2 10%, #c772f2 100%);
-  --arrow-white: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath id='svg-arrow' fill='%23ffffff' d='M12,14.071L8.179,10.25c-0.414-0.414-1.086-0.414-1.5,0l0,0c-0.414,0.414-0.414,1.086,0,1.5l4.614,4.614 c0.391,0.391,1.024,0.391,1.414,0l4.614-4.614c0.414-0.414,0.414-1.086,0-1.5v0c-0.414-0.414-1.086-0.414-1.5,0L12,14.071z'%3E%3C/path%3E%3C/svg%3E%0A");
   --arrow-black: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath id='svg-arrow' fill='%23000000' d='M12,14.071L8.179,10.25c-0.414-0.414-1.086-0.414-1.5,0l0,0c-0.414,0.414-0.414,1.086,0,1.5l4.614,4.614 c0.391,0.391,1.024,0.391,1.414,0l4.614-4.614c0.414-0.414,0.414-1.086,0-1.5v0c-0.414-0.414-1.086-0.414-1.5,0L12,14.071z'%3E%3C/path%3E%3C/svg%3E%0A");
 }
 
@@ -31,12 +30,13 @@ body {
   box-shadow: 0 0 70px -10px rgba(0, 0, 0, 0.2);
   color: #ffffff;
   height: 100vh;
+  width: 100%;
   display: flex;
-
 
   .left {
     height: 100vh;
     width: 272px;
+    flex-shrink: 0;
     transition: 200ms ease;
     display: flex;
     justify-content: space-around;
@@ -226,157 +226,210 @@ body {
     flex-direction: column;
     background-color: #222831;
     height: 100%;
-    width: 341px;
-    justify-content: space-between;
+    flex: 1;
+    min-width: 0;
 
     .top {
-      margin: 2em;
+      margin: 2em 24px 16px;
 
-      .bank-selector {
-        display: none;
-        justify-content: space-between;
-        align-items: center;
-        user-select: none;
-
-        label {
-          font-weight: 700;
-        }
-        select {
-          cursor: pointer;
-          -webkit-appearance: none;
-          background-image: var(--arrow-white);
-          background-size: 24px;
-          background-position: right 6px center;
-          background-repeat: no-repeat;
-          background-color: #222831;
-          width: 110px;
-          border-radius: 2px;
-          box-shadow: none;
-          border: 1px solid #739df2;
-          color: #ffffff;
-          transition: all 0.3s ease-in-out;
-          // Reserve space for the 24px arrow so the selected bank never overlaps it.
-          padding: 5px 32px 5px 10px;
-          font-weight: 700;
-          font-size: 16px;
-          text-align: left;
-          text-align-last: left;
-          outline: none;
-        }
-      }
       .folder-selector {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 1em;
+        gap: 24px;
+      }
+      .card-heading {
+        min-width: 0;
 
-        label {
-          font-weight: 700;
+        h1 {
+          margin: 0;
+          font-size: 22px;
         }
+        .card-path {
+          margin: 6px 0 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 12px;
+          color: #aeb7c5;
+        }
+      }
+      .matrix-help {
+        margin: 12px 0 0;
+        font-size: 12px;
+        color: #aeb7c5;
+        line-height: 1.5;
       }
     }
     .middle {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 4px 24px 12px;
+      -webkit-app-region: no-drag;
+
       p.errors {
         display: none;
-        padding: 2em;
+        padding: 12px;
+        margin: 0 0 16px;
+        border: 1px solid #f27373;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .matrix-empty {
+        padding: 40px;
+        text-align: center;
+        border: 1px dashed #526070;
+        border-radius: 12px;
+        color: #aeb7c5;
+      }
+      .bank-matrix {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .bank-group {
+        padding: 12px;
+        background: #29313d;
+        border: 1px solid #3b4555;
+        border-radius: 12px;
+      }
+      .bank-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+
+        h2 {
+          margin: 0;
+          font-size: 14px;
+        }
+        .bank-count {
+          font-size: 10px;
+          color: #aeb7c5;
+        }
       }
       .pad-list {
-        display: none;
-        padding: 0;
-        margin: 0 2em;
-        flex-wrap: wrap;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
 
-        &.open {
-          display: flex;
-        }
         .pad {
           user-select: none;
           -webkit-app-region: no-drag;
-          padding: 1em;
           cursor: pointer;
-          transition: 200ms ease;
-          border-radius: 10px;
-          box-shadow: 0 0 50px -5px rgba(0, 0, 0, 0.3);
+          transition: background-color 150ms ease, box-shadow 150ms ease;
+          border: 1px solid #526070;
+          border-radius: 6px;
           text-align: center;
-          width: 64px;
-          margin-bottom: 0.5em;
+          min-width: 0;
+          height: 52px;
+          padding: 5px 2px;
+          color: #d7deea;
+          background: #222831;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
 
-          &:hover {
+          .pad-name {
+            font-size: 13px;
             font-weight: 700;
-            transform: scale(1.1);
-            background: #739df2;
-            color: #222831;
-            box-shadow: 0 0 40px -5px rgba(0, 0, 0, 0.2);
+          }
+          .pad-status {
+            font-size: 8px;
+          }
+          &:hover, &:focus-visible {
+            outline: 2px solid #739df2;
+            outline-offset: 1px;
+          }
+          &[draggable="true"] {
+            cursor: grab;
+          }
+          &.dragging {
+            opacity: 0.45;
+            cursor: grabbing;
+          }
+          &.drop-target {
+            outline: 3px solid #73f279;
+            outline-offset: 2px;
+            box-shadow: 0 0 16px rgba(115, 242, 121, 0.45);
           }
         }
-        .pad.selected {
-          transform: scale(1.1);
-          color: #222831 !important;
-          background-image: linear-gradient(135deg, #ecd051 10%, #f2e572 100%) !important;
-          box-shadow: 0 0 40px -5px rgba(0, 0, 0, 0.2);
-        }
-        .pad.pad-9 {
-          margin-bottom: 0;
-        }
-        .pad.pad-10 {
-          margin-bottom: 0;
-        }
-        .pad.pad-11 {
-          margin-bottom: 0;
-        }
-        .pad.pad-12 {
-          margin-bottom: 0;
-        }
         .pad.active-pad {
-          font-weight: 700;
           background-image: var(--gradient);
           color: #fff;
+          border-color: transparent;
         }
         .pad.add-pad {
-          font-weight: 700;
           background-image: linear-gradient(135deg, #73f279 10%, #72f2ac 100%);
           color: #222831;
+          border-color: transparent;
         }
         .pad.delete-pad {
-          font-weight: 700;
           background-image: linear-gradient(135deg, #f27373 10%, #f272dd 100%);
           color: #fff;
+          border-color: transparent;
+        }
+        .pad.selected {
+          color: #222831;
+          background-image: linear-gradient(135deg, #ecd051 10%, #f2e572 100%);
+          border-color: transparent;
+          box-shadow: 0 0 0 2px #ecd051;
         }
       }
     }
     .bottom {
-      margin: 2em;
+      margin: 12px 24px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
 
+      .matrix-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        color: #aeb7c5;
+        font-size: 11px;
+
+        span { display: flex; align-items: center; gap: 6px; }
+        i { width: 8px; height: 8px; border-radius: 50%; }
+        .sample-dot { background-image: var(--gradient); }
+        .pending-dot { background: #73f279; }
+        .remove-dot { background: #f27373; }
+        .selected-dot { background: #ecd051; }
+      }
       button.write-card {
         display: none;
         outline: none;
-        width: 100%;
-        box-sizing: border-box;
+        width: 220px;
+        flex-shrink: 0;
         border: none;
         border-radius: 25px;
-        padding: 10px;
-        font-family: 'Montserrat', sans-serif;
-        text-align: center;
+        padding: 12px;
         background-image: var(--gradient);
         color: #ffffff;
         font-weight: 700;
-        box-shadow: 0 0 30px -5px rgba(0, 0, 0, 0.25);
         cursor: pointer;
-        transition: transform 200ms ease;
 
-        &:hover {
-          transform: scale(0.95);
-        }
-        &:active {
-          transform: scale(1.05);
-        }
-      }
-      button.write-card[disabled] {
-        cursor: not-allowed;
+        &:hover { filter: brightness(1.1); }
+        &[disabled] { cursor: not-allowed; opacity: 0.5; }
       }
     }
   }
+}
+
+// Keep pads usable on smaller displays; overflow belongs to the bank matrix, not the pad editor.
+@media (max-width: 1300px) {
+  .container .right .middle .bank-matrix {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+[hidden] {
+  display: none !important;
 }
 
 select.tempo-mode {

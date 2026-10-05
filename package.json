@@ -46,9 +46,9 @@
     "package-win": "electron-builder build --win --x64"
   },
   "devDependencies": {
-    "electron": "^44.3.0",
+    "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
-    "sass": "^1.104.1"
+    "sass": "^1.105.1"
   },
   "dependencies": {
     "@uttori/audio-padinfo": "^1.2.2",
