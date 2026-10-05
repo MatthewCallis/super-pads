@@ -9,7 +9,8 @@ const { inspectMidi, inspectPattern, midiToPattern, patternToMidi } = require('.
 const { readPatterns, PATTERN_DIRECTORY } = require('../src/readPatterns');
 const { emptyPatternSlots, suggestNoteMap, validateNoteMap, patternFilename, noteName } = require('../src/patternSlots');
 
-const midiBytes = fs.readFileSync(path.join(__dirname, '..', 'pattern-test', 'future-bap.mid'));
+// Freeze both the MIDI source and expected SX bytes in the repository so clean checkouts run the same regression.
+const midiBytes = fs.readFileSync(path.join(__dirname, 'fixtures', 'future-bap.mid'));
 const requestedMap = { 36: 'F9', 37: 'F10', 38: 'F11', 39: 'F12', 40: 'F5', 41: 'F6', 42: 'F7', 43: 'F8' };
 
 /** Compare actual musical events, independent of MIDI track wrappers and native timing placeholders. */
@@ -24,7 +25,7 @@ test('future-bap imports with the exact requested F mapping and survives a music
   assert.equal(noteName(36), 'C1');
   assert.deepEqual(suggestNoteMap(original.pitches, 'F'), requestedMap);
   const bytes = await midiToPattern(midiBytes, requestedMap);
-  assert.deepEqual(bytes, fs.readFileSync(path.join(__dirname, '..', 'pattern-test', 'future-bap.bin')));
+  assert.deepEqual(bytes, fs.readFileSync(path.join(__dirname, 'fixtures', 'future-bap.bin')));
   // Check hardware fields directly: a symmetric library round-trip can hide an invalid native format.
   const addresses = { 36: 55, 37: 56, 38: 57, 39: 58, 40: 51, 41: 52, 42: 53, 43: 54 };
   const nativeHits = [];

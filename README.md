@@ -6,10 +6,12 @@ Super Pads helps manage samples on a SP-404SX.
 
 Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version.
 
-## Latest Version: v1.3.0 (2026-09-14)
+## Latest Version: v2.0.0 (2026-10-05)
 
 - Pad Editor now shows all ten pad banks together in a wider and resizable window.
 - Pattern Import / Export! You can now import and export your patterns to and from MIDI with MIDI preview and custom pad assignment.
+- Preserved tenths of BPM in sample edits.
+- Made canceled file / card pickers leave the editor unchanged.
 - Fixed several bugs and edge cases.
 
 ## How to Use
@@ -209,24 +211,6 @@ Features I have planned to work on as time permits, roughly in order:
 
 ![Super Pads Loading Screen](https://raw.githubusercontent.com/MatthewCallis/super-pads/master/loading.png)
 
-## Change Log
-
-### v1.3.0 (2026-09-14)
-
-- Updated Electron to 44.3.0 and refreshed dependencies.
-- Updated external-link and drag-and-drop handling for modern Electron.
-- Made SD-card saves recoverable with staged writes, backups, rollback, and interrupted-save recovery.
-- Failed conversions now preserve pending edits for retry.
-- Fixed stereo-to-mono conversion, trim handling when replacing samples, pad-10 metadata, and invalid-card error handling.
-- Improved audio previews: switching pads stops playback, waveforms show the full sample, stale previews are cancelled, and special characters in file paths work correctly.
-- Reduced resource usage through worker cleanup, waveform caching, faster WAV scans, limited conversion concurrency, and fewer UI rebuilds.
-- Fixed accumulating loading animations and bank-dropdown text overlapping the arrow.
-- Added npm run package to build all five release assets: macOS ARM64/x64 DMGs, Windows x64 portable executable, and Linux x64 AppImage/archive.
-- Fixed oversized bundles and platform-specific FFmpeg packaging.
-- Updated icon generation and stylesheet build commands.
-- Added 20 automated tests and expanded Electron UI regression coverage.
-- Requirements: macOS 13+ or Windows 10+. Building from source requires Node.js 24+.
-
 ## License
 
-- [MIT](LICENSE)
+- [MIT](LICENSE.md)

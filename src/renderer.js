@@ -340,15 +340,18 @@ const renderLeft = (label) => {
     state.pads[state.currentPad].tempoMode = event.target.value;
   });
 
-  document.querySelector('input.bpm').value = pad.originalTempo;
-  listen('input.bpm', 'change', (event) => {
-    state.pads[state.currentPad].originalTempo = Number.parseInt(event.target.value, 10);
-  });
-
-  document.querySelector('input.bpm-user').value = pad.userTempo;
-  listen('input.bpm-user', 'change', (event) => {
-    state.pads[state.currentPad].userTempo = Number.parseInt(event.target.value, 10);
-  });
+  // Card tempos use tenths of BPM. Keep the last valid value if a cleared or invalid field loses focus.
+  for (const [selector, field] of [['input.bpm', 'originalTempo'], ['input.bpm-user', 'userTempo']]) {
+    document.querySelector(selector).value = pad[field];
+    listen(selector, 'change', (event) => {
+      const input = event.target;
+      if (!Number.isFinite(input.valueAsNumber) || !input.validity.valid) {
+        input.value = state.pads[state.currentPad][field];
+        return;
+      }
+      state.pads[state.currentPad][field] = input.valueAsNumber;
+    });
+  }
 
   document.querySelector('.volume-numeric').textContent = `(${pad.volume})`;
   document.querySelector('input.volume').value = pad.volume;
@@ -502,8 +505,8 @@ document.querySelector('button.choose-folder').addEventListener('click', () => {
 });
 
 // #region IPC Main Tasks
-ipcRenderer.on('pickSDCard-task-finished', (event, { valid, root, error }) => {
-  if (busy) return;
+ipcRenderer.on('pickSDCard-task-finished', (event, { valid, root, error, canceled }) => {
+  if (busy || canceled) return;
   if (error) {
     document.querySelector('button.choose-folder').disabled = false;
     showError(error);
@@ -519,7 +522,8 @@ ipcRenderer.on('pickSDCard-task-finished', (event, { valid, root, error }) => {
     parsePads();
   }
 });
-ipcRenderer.on('pickFile-task-finished', (event, { file, error }) => {
+ipcRenderer.on('pickFile-task-finished', (event, { file, error, canceled }) => {
+  if (canceled) return;
   if (error) {
     showError(error);
     return;

@@ -106,7 +106,12 @@ ipcMain.on('pickSDCard', (event) => {
   dialog.showOpenDialog(BrowserWindow.getFocusedWindow(), {
     title: 'Select SD Card',
     properties: ['openDirectory', 'createDirectory', 'dontAddToRecent'],
-  }).then(({ filePaths }) => {
+  }).then(({ canceled, filePaths }) => {
+    // Cancellation is not a card read: preserve the current card and its queued edits.
+    if (canceled || filePaths.length === 0) {
+      event.sender.send('pickSDCard-task-finished', { canceled: true });
+      return;
+    }
     let valid = true;
     // Doesn't seem like a Roland
     const [root] = filePaths;
@@ -123,7 +128,12 @@ ipcMain.on('pickFile', (event) => {
   dialog.showOpenDialog(BrowserWindow.getFocusedWindow(), {
     title: 'Select File to Convert',
     properties: ['openFile', 'createDirectory', 'dontAddToRecent'],
-  }).then(({ filePaths }) => {
+  }).then(({ canceled, filePaths }) => {
+    // Match pattern imports: closing a native picker is a silent no-op.
+    if (canceled || filePaths.length === 0) {
+      event.sender.send('pickFile-task-finished', { canceled: true });
+      return;
+    }
     const [file] = filePaths;
     event.sender.send('pickFile-task-finished', { file });
   }).catch((error) => {

@@ -16,13 +16,19 @@ let AudioWAV;
 const externalURLs = [];
 const rendererErrors = [];
 let finished = false;
-let patternImportFile = path.join(__dirname, '..', 'pattern-test', 'future-bap.mid');
+let patternImportFile = path.join(__dirname, '..', 'test', 'fixtures', 'future-bap.mid');
+/** Cancel only the next sample/card picker so both startup and queued edits can be checked. */
+let cancelNextPicker = false;
 /** Gate the native picker reply so loading/cancellation can be checked while the user is still choosing. */
 let holdPatternPicker = false;
 let releasePatternPicker;
 
 // Keep dialogs/browser launches inside the fixtures created before the app starts.
 dialog.showOpenDialog = async (_window, options) => {
+  if (cancelNextPicker) {
+    cancelNextPicker = false;
+    return { canceled: true, filePaths: [] };
+  }
   let selected = card.file;
   if (options.properties.includes('openDirectory')) selected = card.root;
   else if (options.title === 'Import MIDI or SX Pattern') {
@@ -59,6 +65,18 @@ async function waitFor(check, description) {
   throw new Error(`Timed out: ${description}`);
 }
 
+/** Wait for the real IPC reply and verify that canceling a picker preserves the complete editor snapshot. */
+async function checkPickerCancellation(evaluate, selector, channel) {
+  const previous = await evaluate('JSON.stringify(state)');
+  cancelNextPicker = true;
+  await evaluate(`new Promise(resolve => {
+    ipcRenderer.once(${JSON.stringify(channel)}, () => resolve());
+    document.querySelector(${JSON.stringify(selector)}).click();
+  })`);
+  assert.equal(await evaluate('JSON.stringify(state)'), previous);
+  assert.equal(await evaluate('getComputedStyle(document.querySelector("p.errors")).display'), 'none');
+}
+
 /** Exercise the actual renderer, IPC, Node conversion threads, browser previews, and file-backed drop. */
 async function checkWindow(window) {
   const contents = window.webContents;
@@ -85,6 +103,7 @@ async function checkWindow(window) {
   assert.equal(BrowserWindow.getAllWindows().length, 1);
   assert.equal(externalURLs.length, 1);
 
+  await checkPickerCancellation(evaluate, 'button.choose-folder', 'pickSDCard-task-finished');
   await evaluate('document.querySelector("button.choose-folder").click()');
   await waitFor(async () => {
     const error = await evaluate('document.querySelector("p.errors").textContent');
@@ -150,7 +169,7 @@ async function checkWindow(window) {
   console.log(`Electron ${process.versions.electron}: startup, all 120 pads, transfers, audio preview, card recovery, Patterns tabs/matrix/timeline, future-bap assignment, MIDI/native import/export, save/reopen, and conversion passed.`);
 }
 
-/** Exercise pattern controls and native dialogs against the user's MIDI fixture, without touching a real card. */
+/** Exercise pattern controls and native dialogs against the repository MIDI fixture, without touching a real card. */
 async function checkPatterns(contents, evaluate) {
   const window = BrowserWindow.fromWebContents(contents);
   await evaluate(`document.querySelector('#patterns-tab').click()`);
@@ -373,8 +392,36 @@ async function checkRegressions(contents, evaluate) {
     await waitFor(() => evaluate('!busy'), 'card write completes');
   }
 
+  // Canceled sample/card pickers must leave queued audio and settings intact without reporting failures.
+  await evaluate(`renderLeft('A1'); setExternalFile(${JSON.stringify(card.file)}); hideError()`);
+  assert.equal(await evaluate('state.pads.A1.convert'), true);
+  await checkPickerCancellation(evaluate, '.left .drop-zone', 'pickFile-task-finished');
+  await checkPickerCancellation(evaluate, 'button.choose-folder', 'pickSDCard-task-finished');
+
+  // Use real controls and on-card metadata to catch rounding or invalid input poisoning future saves.
+  await evaluate(`
+    for (const [selector, value] of [['input.bpm', '123.4'], ['input.bpm-user', '98.7']]) {
+      const input = document.querySelector(selector);
+      input.value = value;
+      input.dispatchEvent(new Event('change'));
+      if (!input.validity.valid) throw new Error('Tenths of BPM must be valid');
+    }
+  `);
+  assert.equal(await evaluate('state.pads.A1.originalTempo'), 123.4);
+  assert.equal(await evaluate('state.pads.A1.userTempo'), 98.7);
+  for (const value of ['', '19', '1000', '123.45']) {
+    await evaluate(`{
+      const input = document.querySelector('input.bpm');
+      input.value = ${JSON.stringify(value)};
+      input.dispatchEvent(new Event('change'));
+    }`);
+    assert.equal(await evaluate('state.pads.A1.originalTempo'), 123.4);
+    assert.equal(await evaluate('document.querySelector("input.bpm").value'), '123.4');
+  }
   // The preceding real file drop queued A1. Write through the UI, then use the actual mono switch.
   await writeCardUI();
+  assert.equal(readPads()[0].originalTempo, 123.4);
+  assert.equal(readPads()[0].userTempo, 98.7);
   assert.equal(await evaluate('state.pads.A1.convert'), false);
   assert.equal(readPads()[0].originalSampleStart, 512);
   assert.equal(readPads()[119].volume, 49);
