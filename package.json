@@ -48,7 +48,7 @@
   "devDependencies": {
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
-    "sass": "^1.105.1"
+    "sass": "^1.105.2"
   },
   "dependencies": {
     "@uttori/data-tools": "^5.1.1",
