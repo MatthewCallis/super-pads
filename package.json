@@ -46,9 +46,9 @@
     "package-win": "electron-builder build --win --x64"
   },
   "devDependencies": {
-    "electron": "^44.5.1",
-    "electron-builder": "^26.15.3",
-    "sass": "^1.105.1"
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "sass": "^1.107.0"
   },
   "dependencies": {
     "@uttori/data-tools": "^5.1.1",

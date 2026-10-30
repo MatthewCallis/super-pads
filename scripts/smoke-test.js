@@ -148,6 +148,7 @@ async function checkWindow(window) {
   assert.equal(chunks.find((chunk) => chunk.type === 'format').value.sampleRate, 44100);
   assert.equal(chunks.find((chunk) => chunk.type === 'roland').value.sampleIndex, 14);
   await checkMatrix(evaluate);
+  await checkBulkEditing(contents, evaluate);
   // Opt-in captures let developers inspect the real renderer without retaining fixture files.
   if (process.env.SUPER_PADS_SCREENSHOT) {
     // Let rapid synthetic selections reach the compositor before capturing the final matrix state.
@@ -166,7 +167,7 @@ async function checkWindow(window) {
   await checkRegressions(contents, evaluate);
   assert.deepEqual(await evaluate('smokeErrors'), []);
   assert.deepEqual(rendererErrors, []);
-  console.log(`Electron ${process.versions.electron}: startup, all 120 pads, transfers, audio preview, card recovery, Patterns tabs/matrix/timeline, future-bap assignment, MIDI/native import/export, save/reopen, and conversion passed.`);
+  console.log(`Electron ${process.versions.electron}: startup, all 120 pads, bulk editing, transfers, audio preview, card recovery, Patterns tabs/matrix/timeline, future-bap assignment, MIDI/native import/export, save/reopen, and conversion passed.`);
 }
 
 /** Exercise pattern controls and native dialogs against the repository MIDI fixture, without touching a real card. */
@@ -382,6 +383,139 @@ async function checkMatrix(evaluate) {
   assert.equal(await evaluate('canDragPad(state.pads.C4)'), false);
 }
 
+/** Edit heterogeneous selections through real controls, comparing every pad to catch unrelated field changes. */
+async function checkBulkEditing(contents, evaluate) {
+  const original = await evaluate('structuredClone(state.pads)');
+  await evaluate(`
+    Object.assign(state.pads.A1, {
+      volume: 40, loop: false, gate: true, lofi: true, reverse: false,
+      originalTempo: 120.3, userTempo: 80.1, tempoMode: 'Off', channels: 'Stereo',
+    });
+    Object.assign(state.pads.A2, {
+      avaliable: false, volume: 100, loop: true, gate: false, lofi: false, reverse: true,
+      originalTempo: 140.7, userTempo: 110.4, tempoMode: 'User', channels: 'Mono',
+    });
+    window.smokeSelectPad = (label, modifiers = {}) => {
+      document.querySelector('.pad[data-label="' + label + '"]').dispatchEvent(
+        new MouseEvent('click', { bubbles: true, ...modifiers }),
+      );
+    };
+    undefined;
+  `);
+  const expected = await evaluate('structuredClone(state.pads)');
+  await evaluate(`smokeSelectPad('A1'); smokeSelectPad('A2', { ctrlKey: true });`);
+  assert.deepEqual(await evaluate('state.pads'), expected);
+  assert.equal(await evaluate('document.querySelectorAll(".pad[aria-pressed=true]").length'), 2);
+  assert.equal(await evaluate('document.querySelector(".selection-count").textContent'), '2 pads selected');
+  assert.equal(await evaluate('document.querySelector(".pad-label").textContent'), '2 pads');
+  assert.equal(await evaluate(`['lofi-button', 'gate-button', 'loop-button', 'reverse-off-button', 'mono-stereo-button']
+    .every(name => document.querySelector('input.' + name).indeterminate)`), true);
+  assert.equal(await evaluate('document.querySelector("input.bpm").value'), '');
+  assert.equal(await evaluate('document.querySelector("input.bpm-user").placeholder'), 'Mixed');
+  assert.equal(await evaluate('document.querySelector("select.tempo-mode").value'), '');
+  assert.equal(await evaluate('document.querySelector("input.volume-entry").value'), '');
+  assert.equal(await evaluate('document.querySelector(".volume-numeric").textContent'), '(Mixed)');
+  assert.equal(await evaluate('document.querySelector("button.play").disabled'), true);
+  assert.equal(await evaluate('document.querySelector(".left .drop-zone").disabled'), true);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.checkbox:indeterminate + .knobs'), '::after').content`), '"MIXED"');
+  if (process.env.SUPER_PADS_BULK_SCREENSHOT) {
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    // Slider colors/visibility animate for 300 ms; capture the settled mixed state.
+    await delay(350);
+    fs.writeFileSync(process.env.SUPER_PADS_BULK_SCREENSHOT, (await contents.capturePage()).toPNG());
+  }
+
+  // Resolving a mixed flag assigns one value to everyone, rather than inverting each pad's previous value.
+  for (const [selector, field] of [
+    ['loop-button', 'loop'], ['gate-button', 'gate'], ['lofi-button', 'lofi'], ['reverse-off-button', 'reverse'],
+  ]) {
+    await evaluate(`document.querySelector('input.${selector}').click()`);
+    expected.A1[field] = true;
+    expected.A2[field] = true;
+    assert.deepEqual(await evaluate('state.pads'), expected);
+    assert.equal(await evaluate(`document.querySelector('input.${selector}').indeterminate`), false);
+    await evaluate(`document.querySelector('input.${selector}').click()`);
+    expected.A1[field] = false;
+    expected.A2[field] = false;
+    assert.deepEqual(await evaluate('state.pads'), expected);
+  }
+  await evaluate(`{
+    const input = document.querySelector('select.tempo-mode');
+    input.value = 'Pattern'; input.dispatchEvent(new Event('change'));
+  }`);
+  expected.A1.tempoMode = 'Pattern';
+  expected.A2.tempoMode = 'Pattern';
+  for (const value of ['', '19', '1000', '123.45']) {
+    await evaluate(`{
+      const input = document.querySelector('input.bpm');
+      input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event('change'));
+    }`);
+    assert.deepEqual(await evaluate('state.pads'), expected);
+    assert.equal(await evaluate('document.querySelector("input.bpm").value'), '');
+  }
+  for (const [selector, field, value] of [
+    ['input.bpm', 'originalTempo', 125.6], ['input.bpm-user', 'userTempo', 87.9],
+    ['input.volume-entry', 'volume', 64], ['input.volume-entry', 'volume', 0], ['input.volume', 'volume', 83],
+  ]) {
+    await evaluate(`{
+      const input = document.querySelector('${selector}');
+      input.value = '${value}'; input.dispatchEvent(new Event('change'));
+    }`);
+    expected.A1[field] = value;
+    expected.A2[field] = value;
+    assert.deepEqual(await evaluate('state.pads'), expected);
+  }
+  // An invalid numeric volume must not erase the last valid shared value.
+  await evaluate(`{
+    const input = document.querySelector('input.volume-entry');
+    input.value = ''; input.dispatchEvent(new Event('change'));
+  }`);
+  assert.deepEqual(await evaluate('state.pads'), expected);
+  assert.equal(await evaluate('document.querySelector("input.volume-entry").value'), '83');
+
+  await evaluate(`document.querySelector('input.mono-stereo-button').click()`);
+  expected.A1.targetChannels = 'Mono';
+  assert.deepEqual(await evaluate('state.pads'), expected);
+  assert.equal(await evaluate('document.querySelector("input.mono-stereo-button").checked'), true);
+  await evaluate(`document.querySelector('input.mono-stereo-button').click()`);
+  delete expected.A1.targetChannels;
+  assert.deepEqual(await evaluate('state.pads'), expected);
+  assert.equal(await evaluate('document.querySelector("input.mono-stereo-button").indeterminate'), true);
+
+  await evaluate(`smokeSelectPad('A3', { metaKey: true }); document.querySelector('button.remove-pad').click();`);
+  expected.A1.remove = true;
+  expected.A2.remove = true;
+  assert.deepEqual(await evaluate('state.pads'), expected);
+  assert.equal(await evaluate('document.querySelector("button.remove-pad").textContent'), 'Keep Selected Pads');
+  await evaluate(`document.querySelector('button.remove-pad').click(); smokeSelectPad('A3', { metaKey: true });`);
+  expected.A1.remove = false;
+  expected.A2.remove = false;
+  assert.deepEqual(await evaluate('state.pads'), expected);
+
+  await evaluate(`smokeSelectPad('A2', { ctrlKey: true }); smokeSelectPad('A1', { ctrlKey: true });`);
+  assert.equal(await evaluate('state.currentPad'), 'A1');
+  assert.equal(await evaluate('document.querySelectorAll(".pad.selected").length'), 1);
+  assert.equal(await evaluate('document.querySelector("input.loop-button").indeterminate'), false);
+  assert.equal(await evaluate('document.querySelector("input.bpm").value'), '125.6');
+  await evaluate(`smokeSelectPad('A11'); smokeSelectPad('B2', { shiftKey: true });`);
+  assert.deepEqual(await evaluate('Array.from(selectedPads)'), ['A11', 'A12', 'B1', 'B2']);
+  await evaluate(`smokeSelectPad('B4', { shiftKey: true });`);
+  assert.equal(await evaluate('selectedPads.size'), 6);
+  await evaluate(`smokeSelectPad('A9', { shiftKey: true });`);
+  assert.deepEqual(await evaluate('Array.from(selectedPads)'), ['A9', 'A10', 'A11']);
+  await evaluate(`smokeSelectPad('B2', { ctrlKey: true, shiftKey: true });`);
+  assert.deepEqual(await evaluate('Array.from(selectedPads)'), ['A9', 'A10', 'A11', 'A12', 'B1', 'B2']);
+  await evaluate(`document.querySelector('button.select-all-pads').click(); selectTab('patterns'); selectTab('pads');`);
+  assert.equal(await evaluate('document.querySelectorAll(".pad.selected").length'), 120);
+  assert.equal(await evaluate('document.querySelector("button.select-all-pads").disabled'), true);
+  assert.deepEqual(await evaluate('state.pads'), expected);
+  await evaluate(`smokeDragPad('J12', 'B5')`);
+  assert.equal(await evaluate('document.querySelectorAll(".pad.selected").length'), 1);
+  assert.equal(await evaluate('state.currentPad'), 'B5');
+  // Restore queued fixtures so later save/conversion tests exercise their original samples and settings.
+  await evaluate(`state.pads = ${JSON.stringify(original)}; selectPad('A1'); renderPads();`);
+}
+
 /** Exercise the audit regressions through real controls, files, asynchronous media, and browser workers. */
 async function checkRegressions(contents, evaluate) {
   const info = path.join(card.directory, 'PAD_INFO.BIN');
@@ -425,6 +559,26 @@ async function checkRegressions(contents, evaluate) {
   assert.equal(await evaluate('state.pads.A1.convert'), false);
   assert.equal(readPads()[0].originalSampleStart, 512);
   assert.equal(readPads()[119].volume, 49);
+  // Save a bulk change and compare every encoded record: no other metadata byte may change.
+  const beforeBulkSave = fs.readFileSync(info);
+  const expectedBulkPads = readPads();
+  expectedBulkPads[24].volume = 73;
+  expectedBulkPads[25].volume = 73;
+  await evaluate(`
+    smokeSelectPad('C1'); smokeSelectPad('C2', { metaKey: true });
+    const bulkVolume = document.querySelector('input.volume-entry');
+    bulkVolume.value = '73'; bulkVolume.dispatchEvent(new Event('change'));
+  `);
+  await writeCardUI();
+  assert.equal(await evaluate('selectedPads.size'), 2);
+  const expectedBulkBytes = Buffer.concat(expectedBulkPads.map(pad => SP404PadInfo.encodePad(pad)));
+  assert.deepEqual(fs.readFileSync(info), expectedBulkBytes);
+  assert.deepEqual(fs.readFileSync(info).subarray(0, 24 * 32), beforeBulkSave.subarray(0, 24 * 32));
+  await evaluate('parsePads()');
+  assert.equal(await evaluate('selectedPads.size'), 1);
+  assert.equal(await evaluate('state.pads.C1.volume'), 73);
+  assert.equal(await evaluate('state.pads.C2.volume'), 73);
+  await evaluate(`smokeSelectPad('A1')`);
   const beforeMove = readWave();
   await evaluate(`smokeDragPad('A1', 'F6')`);
   assert.equal(await evaluate('previewPath(state.pads.F6)'), path.join(card.directory, 'A0000001.WAV'));
@@ -541,6 +695,8 @@ async function checkRegressions(contents, evaluate) {
 
 app.on('browser-window-created', (_event, window) => {
   window.hide();
+  // Hidden fixture windows still need animation frames for deterministic layout checks and screenshots.
+  window.webContents.setBackgroundThrottling(false);
   window.webContents.on('console-message', (event) => {
     if (event.level === 'error') rendererErrors.push(event.message);
   });

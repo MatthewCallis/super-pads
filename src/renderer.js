@@ -20,6 +20,10 @@ let state = {
   currentPad: 'A1',
   patterns: emptyPatternSlots(),
 };
+/** Selection belongs to this editor session; card snapshots retain only the active pad. */
+let selectedPads = new Set(['A1']);
+/** Fixed origin for repeated Shift-click ranges in bank/number order. */
+let selectionAnchor = 'A1';
 
 // Loading
 let requestId = null;
@@ -199,12 +203,13 @@ const setExternalFile = (filePath, size = 0, label = state.currentPad) => {
   // Replacing a moved sample changes its source to this import, while its old slot still stays vacant.
   delete state.pads[label].sourceFilename;
   updatePad(label);
-  renderLeft(label);
+  selectPad(label);
 };
 
 /** Expose all bank groups only after a complete card read, keeping the folder picker available for recovery. */
 const togglePicker = (show) => {
   document.querySelector('.bank-matrix').hidden = !show;
+  document.querySelector('.pad-selection-toolbar').hidden = !show;
   document.querySelector('.matrix-help').hidden = !show || document.querySelector('#pads-panel').hidden;
   document.querySelector('.matrix-legend').hidden = !show;
   document.querySelector('.matrix-empty').hidden = show;
@@ -227,6 +232,8 @@ const dropOnPad = (event, label) => {
     if (source !== draggedPad) return;
     draggedPad = undefined;
     if (transferPads(state.pads, source, label)) {
+      selectedPads = new Set([label]);
+      selectionAnchor = label;
       state.currentPad = label;
       renderPads();
     }
@@ -260,8 +267,39 @@ document.addEventListener('dragover', (event) => event.preventDefault());
 document.addEventListener('drop', (event) => event.preventDefault());
 document.addEventListener('dragend', () => { draggedPad = undefined; clearDragFeedback(); });
 
-const onChange = (field) => () => {
-  state.pads[state.currentPad][field] = !state.pads[state.currentPad][field];
+/** Select one pad, toggle membership, or extend a range; keep at least one editable pad selected. */
+const selectPad = (label, { ctrlKey = false, metaKey = false, shiftKey = false } = {}) => {
+  if (!state.pads[label]) return;
+  const additive = ctrlKey || metaKey;
+  if (shiftKey) {
+    const labels = Object.keys(state.pads);
+    const start = labels.indexOf(selectionAnchor);
+    const end = labels.indexOf(label);
+    if (!additive) selectedPads.clear();
+    for (const item of labels.slice(Math.min(start, end), Math.max(start, end) + 1)) selectedPads.add(item);
+  } else if (additive) {
+    // Removing the active pad must select a remaining member before its controls are rebuilt.
+    if (selectedPads.has(label) && selectedPads.size > 1) selectedPads.delete(label);
+    else selectedPads.add(label);
+    selectionAnchor = label;
+  } else {
+    selectedPads = new Set([label]);
+    selectionAnchor = label;
+  }
+  const active = selectedPads.has(label) ? label : Array.from(selectedPads).at(-1);
+  renderLeft(active);
+};
+
+document.querySelector('button.select-all-pads').addEventListener('click', () => {
+  if (busy || !cardReady) return;
+  selectedPads = new Set(Object.keys(state.pads));
+  renderLeft(state.currentPad);
+});
+
+/** Return a shared setting, or undefined when selected pads differ; this never normalizes their values. */
+const sharedValue = (pads, getValue) => {
+  const value = getValue(pads[0]);
+  return pads.every((pad) => getValue(pad) === value) ? value : undefined;
 };
 
 /** Resolve the pending import or card sample; empty pads have no preview work. */
@@ -272,7 +310,7 @@ const previewPath = (pad) => {
   return undefined;
 };
 
-/** Update stable controls and cancel listeners owned by the previous selection. */
+/** Show shared/mixed values and bind field-specific edits to this selection, canceling previous listeners. */
 const renderLeft = (label) => {
   if (!label) {
     return;
@@ -282,9 +320,16 @@ const renderLeft = (label) => {
   if (!pad) {
     return;
   }
+  // Direct navigation to a pad outside the selection starts a single-pad edit.
+  if (!selectedPads.has(label)) {
+    selectedPads = new Set([label]);
+    selectionAnchor = label;
+  }
   state.currentPad = label;
+  const pads = Array.from(selectedPads, (selected) => state.pads[selected]);
+  const bulk = pads.length > 1;
   for (const node of document.querySelectorAll('.pad-list .pad')) {
-    const selected = node.dataset.label === label;
+    const selected = selectedPads.has(node.dataset.label);
     node.classList.toggle('selected', selected);
     node.setAttribute('aria-pressed', String(selected));
   }
@@ -299,85 +344,112 @@ const renderLeft = (label) => {
   document.querySelector('.left').classList.remove('startup', 'drop-zone');
   document.querySelector('.left').classList.remove('open', 'used');
   document.querySelector('.left').classList.add(pad.avaliable ? 'open' : 'used');
+  document.querySelector('.left').classList.toggle('bulk', bulk);
+  document.querySelector('.selection-count').textContent = `${pads.length} pad${bulk ? 's' : ''} selected`;
+  document.querySelector('button.select-all-pads').disabled = pads.length === Object.keys(state.pads).length;
+  document.querySelector('.bulk-help').hidden = !bulk;
 
-  // NOTE: Checkboxes invert to fit the checkbox style, only for display.
-  document.querySelector('input.lofi-button').checked = !pad.lofi;
-  listen('input.lofi-button', 'change', onChange('lofi'));
-
-  document.querySelector('input.gate-button').checked = !pad.gate;
-  listen('input.gate-button', 'change', onChange('gate'));
-
-  document.querySelector('input.loop-button').checked = !pad.loop;
-  listen('input.loop-button', 'change', onChange('loop'));
-
-  document.querySelector('input.reverse-off-button').checked = !pad.reverse;
-  listen('input.reverse-off-button', 'change', onChange('reverse'));
-
-  if (pad.channels === 'Mono' || pad.targetChannels === 'Mono') {
-    document.querySelector('input.mono-stereo-button').checked = true;
-  } else {
-    document.querySelector('input.mono-stereo-button').checked = false;
-  }
-
-  if (pad.channels === 'Mono') {
-    document.querySelector('input.mono-stereo-button').disabled = true;
-    document.querySelector('input.mono-stereo-button').readonly = true;
-  } else {
-    document.querySelector('input.mono-stereo-button').disabled = false;
-    document.querySelector('input.mono-stereo-button').readonly = false;
-    listen('input.mono-stereo-button', 'change', (event) => {
-      if (event.target.checked) {
-        state.pads[state.currentPad].targetChannels = 'Mono';
-      } else {
-        delete state.pads[state.currentPad].targetChannels;
-      }
-      updatePad(state.currentPad);
+  for (const [selector, field] of [
+    ['input.lofi-button', 'lofi'], ['input.gate-button', 'gate'],
+    ['input.loop-button', 'loop'], ['input.reverse-off-button', 'reverse'],
+  ]) {
+    const input = document.querySelector(selector);
+    const value = sharedValue(pads, (selected) => selected[field]);
+    // These sliders invert checked for display; a first click on Mixed enables the flag for everyone.
+    input.checked = value !== true;
+    input.indeterminate = value === undefined;
+    listen(selector, 'change', () => {
+      for (const selected of pads) selected[field] = !input.checked;
+      input.indeterminate = false;
     });
   }
 
-  document.querySelector('select.tempo-mode').value = pad.tempoMode;
-  listen('select.tempo-mode', 'change', (event) => {
-    state.pads[state.currentPad].tempoMode = event.target.value;
+  const channels = document.querySelector('input.mono-stereo-button');
+  /** Include queued conversions in the shared value while keeping original mono sources read-only. */
+  const renderChannels = () => {
+    const value = sharedValue(pads, (selected) => selected.targetChannels || selected.channels);
+    channels.checked = value === 'Mono';
+    channels.indeterminate = value === undefined;
+    channels.disabled = pads.every((selected) => selected.channels === 'Mono');
+  };
+  renderChannels();
+  listen('input.mono-stereo-button', 'change', () => {
+    for (const selected of pads) {
+      // Existing mono audio cannot become stereo; cancel conversions only on original stereo sources.
+      if (selected.channels === 'Mono') continue;
+      if (channels.checked) selected.targetChannels = 'Mono';
+      else delete selected.targetChannels;
+      updatePad(selected.label);
+    }
+    renderChannels();
   });
 
-  // Card tempos use tenths of BPM. Keep the last valid value if a cleared or invalid field loses focus.
+  document.querySelector('select.tempo-mode').value = sharedValue(pads, (selected) => selected.tempoMode) ?? '';
+  listen('select.tempo-mode', 'change', (event) => {
+    if (!event.target.value) return;
+    for (const selected of pads) selected.tempoMode = event.target.value;
+  });
+
+  // Blank mixed inputs are display-only. Invalid/cleared edits restore the shared value without touching any pad.
   for (const [selector, field] of [['input.bpm', 'originalTempo'], ['input.bpm-user', 'userTempo']]) {
-    document.querySelector(selector).value = pad[field];
+    const renderTempo = () => {
+      const input = document.querySelector(selector);
+      const value = sharedValue(pads, (selected) => selected[field]);
+      input.value = value ?? '';
+      input.placeholder = value === undefined ? 'Mixed' : '';
+    };
+    renderTempo();
     listen(selector, 'change', (event) => {
       const input = event.target;
       if (!Number.isFinite(input.valueAsNumber) || !input.validity.valid) {
-        input.value = state.pads[state.currentPad][field];
+        renderTempo();
         return;
       }
-      state.pads[state.currentPad][field] = input.valueAsNumber;
+      for (const selected of pads) selected[field] = input.valueAsNumber;
     });
   }
 
-  document.querySelector('.volume-numeric').textContent = `(${pad.volume})`;
-  document.querySelector('input.volume').value = pad.volume;
-  listen('input.volume', 'change', (event) => {
-    event.target.previousSibling.previousSibling.textContent = `(${event.target.value})`;
-    state.pads[state.currentPad].volume = Number.parseInt(event.target.value, 10);
-  });
+  const volume = sharedValue(pads, (selected) => selected.volume);
+  document.querySelector('.volume-numeric').textContent = volume === undefined ? '(Mixed)' : `(${volume})`;
+  document.querySelector('input.volume').value = volume ?? 64;
+  document.querySelector('input.volume-entry').value = volume ?? '';
+  /** Update only volume; the numeric input lets mixed selections choose any value, including the slider midpoint. */
+  const changeVolume = (event) => {
+    const input = event.target;
+    if (!Number.isFinite(input.valueAsNumber) || !input.validity.valid) {
+      input.value = sharedValue(pads, (selected) => selected.volume) ?? '';
+      return;
+    }
+    for (const selected of pads) selected.volume = input.valueAsNumber;
+    document.querySelector('.volume-numeric').textContent = `(${input.value})`;
+    document.querySelector('input.volume').value = input.value;
+    document.querySelector('input.volume-entry').value = input.value;
+  };
+  listen('input.volume-entry', 'change', changeVolume);
+  listen('input.volume', 'change', changeVolume);
 
-  preview.show(previewPath(pad));
+  if (bulk) preview.clear();
+  else preview.show(previewPath(pad));
 
-  document.querySelector('input.original-file').value = pad.externalFile || '';
+  document.querySelector('input.original-file').value = bulk ? '' : pad.externalFile || '';
+  document.querySelector('.left .drop-zone').disabled = bulk;
 
-  document.querySelector('button.remove-pad').disabled = pad.avaliable;
+  const removable = pads.filter((selected) => !selected.avaliable);
+  const keep = removable.length > 0 && removable.every((selected) => selected.remove);
+  document.querySelector('button.remove-pad').disabled = removable.length === 0;
   listen('button.remove-pad', 'click', (_event) => {
-    state.pads[state.currentPad].remove = !state.pads[state.currentPad].remove;
-    updatePad(state.currentPad);
+    for (const selected of removable) {
+      selected.remove = !keep;
+      updatePad(selected.label);
+    }
     renderLeft(state.currentPad);
   });
-  if (pad.remove) {
-    document.querySelector('button.remove-pad').textContent = 'Keep Pad';
-  } else {
-    document.querySelector('button.remove-pad').textContent = 'Remove Pad';
-  }
+  let removeText = keep ? 'Keep Pad' : 'Remove Pad';
+  if (bulk) removeText = keep ? 'Keep Selected Pads' : 'Remove Selected Pads';
+  document.querySelector('button.remove-pad').textContent = removeText;
 
   // Pad Meta Data
-  document.querySelector('.pad-label').textContent = pad.label;
+  document.querySelector('.pad-label').textContent = bulk ? `${pads.length} pads` : pad.label;
   document.querySelector('.file-type').textContent = pad.format;
 
   if (pad.duration) {
@@ -396,6 +468,8 @@ const renderLeft = (label) => {
   // Drag & Drop
   const dropZone = document.querySelector('.left .drop-zone');
   dropZone.classList.remove('gradient-background');
+  // Imports and sample moves address one slot, so the bulk inspector offers only shared settings/removal.
+  if (bulk) return;
   listen('.left .drop-zone', 'click', () => {
     ipcRenderer.send('pickFile');
   });
@@ -429,7 +503,7 @@ const updatePad = (label) => {
   if (pad.convert || pad.targetChannels || pad.relocated) status = 'Pending';
   if (pad.remove) status = 'Remove';
   container.querySelector('.pad-status').textContent = status;
-  container.title = `${label}: ${status}. Click to edit; drop a file here or drag a sample to move or swap.`;
+  container.title = `${label}: ${status}. Click to edit; Cmd/Ctrl-click to select multiple; Shift-click for a range. Drop a file here or drag a sample to move or swap.`;
   const bank = document.querySelector(`.bank-group[data-bank="${label[0]}"]`);
   const filled = Object.values(state.pads).filter((item) => item.label[0] === label[0] && canDragPad(item)).length;
   bank.querySelector('.bank-count').textContent = `${filled} / 12`;
@@ -442,16 +516,16 @@ const buildPads = (pad) => {
   container.dataset.label = pad.label;
   container.classList.add('pad');
   container.classList.add(`pad-${pad.label.slice(1)}`);
-  container.classList.toggle('selected', pad.label === state.currentPad);
+  container.classList.toggle('selected', selectedPads.has(pad.label));
   const label = document.createElement('span');
   label.className = 'pad-name';
   label.textContent = pad.label;
   const status = document.createElement('span');
   status.className = 'pad-status';
   container.append(label, status);
-  container.addEventListener('click', () => {
+  container.addEventListener('click', (event) => {
     if (busy || !cardReady) return;
-    renderLeft(pad.label);
+    selectPad(pad.label, event);
   });
   container.addEventListener('dragstart', (event) => {
     if (busy || !cardReady || !canDragPad(state.pads[pad.label])) {
@@ -479,7 +553,7 @@ const buildPads = (pad) => {
   return container;
 };
 
-/** Rebuild all ten banks after loading, saving, or rearranging; ordinary control edits update one pad. */
+/** Rebuild all ten banks after loading, saving, or rearranging; settings edits retain the existing pad buttons. */
 const renderPads = () => {
   togglePicker(true);
 
@@ -548,6 +622,8 @@ const parsePads = async () => {
     const { pads, patterns } = await runWorker('parsePads', { root: state.root });
     state.pads = Object.fromEntries(pads.map((pad) => [pad.label, { ...pad, convert: false, remove: false }]));
     state.patterns = patterns;
+    selectedPads = new Set([state.currentPad]);
+    selectionAnchor = state.currentPad;
     cardReady = true;
     hideError();
     renderPads();

@@ -7,19 +7,16 @@ Super Pads helps manage samples on a SP-404SX.
 
 Check the [releases page](https://github.com/MatthewCallis/super-pads/releases) for the latest version.
 
-## Latest Version: v2.0.0 (2026-10-05)
+## Latest Version: v2.1.0 (2026-10-30)
 
-- Pad Editor now shows all ten pad banks together in a wider and resizable window.
-- Pattern Import / Export! You can now import and export your patterns to and from MIDI with MIDI preview and custom pad assignment.
-- Preserved tenths of BPM in sample edits.
-- Made canceled file / card pickers leave the editor unchanged.
-- Fixed several bugs and edge cases.
+- Add support for bulk updating pads.
 
 ## How to Use
 
 1. Open the app
 1. Select your SD Card root directory by clicking `Pick Folder`
 1. Click any pad in banks A–J to edit its settings on the left.
+1. Cmd-click (macOS) or Ctrl-click (Windows/Linux) to add or remove pads from the selection. Shift-click selects a range, including across banks; **Select All Pads** selects all 120 pads. Shared settings appear normally and differing settings show **Mixed**. Changing a field applies only that field to the selected pads, preserving all other settings. Click any pad without a modifier to return to editing one pad.
 1. Adjust parameters, remove samples, or drop an audio file directly onto any pad. You can also use `Drop File or Pick File` on the left. Imported files are converted to Wave with [FFmpeg](https://ffmpeg.org/) when saving.
 1. Drag a sample to another pad to move it. Dropping onto an occupied pad swaps both samples, including their settings and trim points. Pending imports can be moved too.
 1. Click `Write SD Card` to save your changes and convert imported files. Imports, transfers, and removals stay queued until you write the card.
@@ -163,6 +160,18 @@ Features I have planned to work on as time permits, roughly in order:
 - Automatic Updates
 
 ## Change Log
+
+## [2.1.0](https://github.com/MatthewCallis/super-pads/releases/tag/2.1.0) - 2026-10-30
+
+- Add support for bulk updating pads.
+
+## [2.0.0](https://github.com/MatthewCallis/super-pads/releases/tag/2.0.0) - 2026-10-05
+
+- Pad Editor now shows all ten pad banks together in a wider and resizable window.
+- Pattern Import / Export! You can now import and export your patterns to and from MIDI with MIDI preview and custom pad assignment.
+- Preserved tenths of BPM in sample edits.
+- Made canceled file / card pickers leave the editor unchanged.
+- Fixed several bugs and edge cases.
 
 ## [1.3.0](https://github.com/MatthewCallis/super-pads/releases/tag/1.3.0) - 2026-09-14
 
